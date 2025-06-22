@@ -1,0 +1,2 @@
+anthropic>=0.54.0
+TkinterDnD2>=0.3.0
