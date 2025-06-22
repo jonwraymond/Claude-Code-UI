@@ -1,0 +1,73 @@
+{
+  "name": "claude-code-vscode",
+  "displayName": "Claude Code",
+  "description": "Interact with Claude Code inside VS Code",
+  "version": "0.0.1",
+  "publisher": "yourname",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onCommand:claudeCode.sendSelection",
+    "onCommand:claudeCode.openPanel"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "claudeCode.sendSelection",
+        "title": "Claude Code: Send Selection"
+      },
+      {
+        "command": "claudeCode.openPanel",
+        "title": "Claude Code: Open Panel"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Claude Code",
+      "properties": {
+        "claudeCode.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API key"
+        },
+        "claudeCode.model": {
+          "type": "string",
+          "default": "claude-3-opus-20240229",
+          "description": "Model name"
+        },
+        "claudeCode.server": {
+          "type": "string",
+          "default": "https://api.anthropic.com",
+          "description": "API server URL"
+        },
+        "claudeCode.memory": {
+          "type": "number",
+          "default": 8000,
+          "description": "Token limit for Claude"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.11.0",
+    "@typescript-eslint/parser": "^6.11.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.54.0"
+  }
+}
