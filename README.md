@@ -25,6 +25,25 @@ python claude_code_ui.py
 
 You will be prompted for your API key when the application starts.
 
+### Minimal SDK Example
+
+
+The `examples/minimal_async_query.py` script demonstrates how to use the
+[Claude Code Python SDK](https://docs.anthropic.com/en/docs/claude-code/sdk)
+directly. It streams responses asynchronously using `anyio` and relies on the
+Claude Code CLI under the hood. Install the CLI and set your API key first:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+export ANTHROPIC_API_KEY=sk-your-key
+```
+
+Then run the example:
+
+```bash
+python examples/minimal_async_query.py
+```
+
 ## Notes
 
 This is a lightweight proof of concept intended to run inside a local Python environment or a VS Code terminal. It does not implement a full VS Code extension, but demonstrates how a Python UI can integrate with the Claude API. To create a complete VS Code extension you would typically develop in TypeScript/JavaScript and invoke this Python script as needed.
