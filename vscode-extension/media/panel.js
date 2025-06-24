@@ -16,11 +16,29 @@ const durationElement = document.getElementById('duration');
 const costElement = document.getElementById('cost');
 const turnsElement = document.getElementById('turns');
 
+// Enhanced UI Elements
+const contextSection = document.getElementById('context-section');
+const contextItems = document.getElementById('context-items');
+const addFilesButton = document.getElementById('add-files');
+const addSelectionButton = document.getElementById('add-selection');
+const workspaceInfoButton = document.getElementById('workspace-info');
+const fileBrowser = document.getElementById('file-browser');
+const fileBrowserContent = document.getElementById('file-browser-content');
+const fileSearch = document.getElementById('file-search');
+const mentionPopup = document.getElementById('mention-popup');
+
 // State
 let currentSessionId = null;
 let isProcessing = false;
 let currentAssistantMessage = null;
 let dragCounter = 0;
+
+// Enhanced State
+let contextReferences = [];
+let workspaceFiles = [];
+let currentMentionQuery = '';
+let mentionStartPos = 0;
+let selectedMentionIndex = 0;
 
 // Event Listeners
 sendButton.addEventListener('click', send);
@@ -31,6 +49,22 @@ input.addEventListener('keydown', (e) => {
     send();
   }
 });
+
+// Enhanced Event Listeners
+addFilesButton.addEventListener('click', showFileBrowser);
+addSelectionButton.addEventListener('click', addCurrentSelection);
+workspaceInfoButton.addEventListener('click', addWorkspaceContext);
+
+// File browser functionality
+fileSearch.addEventListener('input', filterFiles);
+fileBrowserContent.addEventListener('click', handleFileSelection);
+
+// @ mention functionality
+input.addEventListener('input', handleInputChange);
+input.addEventListener('keydown', handleMentionNavigation);
+
+// Context management
+contextItems.addEventListener('click', handleContextItemClick);
 
 // Enhanced Drag and Drop
 const dropZone = document.body;
@@ -475,3 +509,366 @@ window.addEventListener('message', event => {
       break;
   }
 });
+
+// ============================================================================
+// ENHANCED FEATURES IMPLEMENTATION
+// ============================================================================
+
+// Enhanced UI Elements
+const settingsButton = document.getElementById('settings-button');
+const settingsOverlay = document.getElementById('settings-overlay');
+const closeSettingsButton = document.getElementById('close-settings');
+const saveSettingsButton = document.getElementById('save-settings');
+const resetSettingsButton = document.getElementById('reset-settings');
+
+// Settings Event Listeners
+settingsButton.addEventListener('click', showSettings);
+closeSettingsButton.addEventListener('click', hideSettings);
+saveSettingsButton.addEventListener('click', saveSettings);
+resetSettingsButton.addEventListener('click', resetSettings);
+settingsOverlay.addEventListener('click', (e) => {
+  if (e.target === settingsOverlay) hideSettings();
+});
+
+// Context Management Functions
+function addContextReference(type, path, content = '') {
+  const ref = { type, path, content };
+  contextReferences.push(ref);
+  updateContextDisplay();
+}
+
+function removeContextReference(index) {
+  contextReferences.splice(index, 1);
+  updateContextDisplay();
+}
+
+function updateContextDisplay() {
+  const placeholder = contextItems.querySelector('.context-placeholder');
+  
+  if (contextReferences.length === 0) {
+    contextItems.innerHTML = '<div class="context-placeholder" style="color: var(--vscode-descriptionForeground); font-size: 11px; font-style: italic;">Add files, selections, or use @ mentions for context</div>';
+    return;
+  }
+  
+  if (placeholder) placeholder.remove();
+  
+  contextItems.innerHTML = contextReferences.map((ref, index) => {
+    const icon = getContextIcon(ref.type);
+    const name = ref.path.split('/').pop() || ref.path;
+    return `
+      <div class="context-item">
+        <span>${icon}</span>
+        <span title="${ref.path}">${name}</span>
+        <button class="remove" onclick="removeContextReference(${index})">×</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function getContextIcon(type) {
+  const icons = {
+    file: '📄',
+    selection: '📝',
+    workspace: '🔍',
+    symbol: '🔗',
+    folder: '📁'
+  };
+  return icons[type] || '📄';
+}
+
+// File Browser Functions
+function showFileBrowser() {
+  vscode.postMessage({ command: 'getWorkspaceFiles' });
+  fileBrowser.classList.add('show');
+}
+
+function hideFileBrowser() {
+  fileBrowser.classList.remove('show');
+}
+
+function filterFiles() {
+  const query = fileSearch.value.toLowerCase();
+  const fileItems = fileBrowserContent.querySelectorAll('.file-item');
+  
+  fileItems.forEach(item => {
+    const path = item.textContent.toLowerCase();
+    item.style.display = path.includes(query) ? 'flex' : 'none';
+  });
+}
+
+function handleFileSelection(e) {
+  const fileItem = e.target.closest('.file-item');
+  if (!fileItem) return;
+  
+  const path = fileItem.dataset.path;
+  addContextReference('file', path);
+  hideFileBrowser();
+}
+
+function populateFileBrowser(files) {
+  fileBrowserContent.innerHTML = files.map(file => {
+    const icon = getFileIcon(file.name);
+    const size = formatFileSize(file.size);
+    return `
+      <div class="file-item" data-path="${file.path}">
+        <span class="file-item-icon">${icon}</span>
+        <span class="file-item-path">${file.path}</span>
+        <span class="file-item-size">${size}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function getFileIcon(filename) {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  const icons = {
+    js: '🟨', ts: '🔷', py: '🐍', html: '🌐', css: '🎨',
+    json: '📋', md: '📝', txt: '📄', yml: '⚙️', yaml: '⚙️',
+    png: '🖼️', jpg: '🖼️', gif: '🖼️', svg: '🖼️'
+  };
+  return icons[ext] || '📄';
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// @ Mention Functions
+function handleInputChange(e) {
+  const text = input.value;
+  const cursorPos = input.selectionStart;
+  
+  // Check for @ mention
+  const beforeCursor = text.substring(0, cursorPos);
+  const mentionMatch = beforeCursor.match(/@([^@\s]*)$/);
+  
+  if (mentionMatch) {
+    currentMentionQuery = mentionMatch[1];
+    mentionStartPos = cursorPos - currentMentionQuery.length - 1;
+    showMentionPopup();
+  } else {
+    hideMentionPopup();
+  }
+}
+
+function handleMentionNavigation(e) {
+  if (!mentionPopup.classList.contains('show')) return;
+  
+  const items = mentionPopup.querySelectorAll('.mention-item');
+  
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault();
+      selectedMentionIndex = Math.min(selectedMentionIndex + 1, items.length - 1);
+      updateMentionSelection();
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      selectedMentionIndex = Math.max(selectedMentionIndex - 1, 0);
+      updateMentionSelection();
+      break;
+    case 'Enter':
+    case 'Tab':
+      e.preventDefault();
+      selectMention(selectedMentionIndex);
+      break;
+    case 'Escape':
+      hideMentionPopup();
+      break;
+  }
+}
+
+function showMentionPopup() {
+  vscode.postMessage({ command: 'getMentionSuggestions', query: currentMentionQuery });
+  
+  // Position popup
+  const rect = input.getBoundingClientRect();
+  mentionPopup.style.left = '0px';
+  mentionPopup.style.bottom = `${input.offsetHeight + 5}px`;
+  mentionPopup.classList.add('show');
+}
+
+function hideMentionPopup() {
+  mentionPopup.classList.remove('show');
+  selectedMentionIndex = 0;
+}
+
+function populateMentionPopup(suggestions) {
+  mentionPopup.innerHTML = suggestions.map((item, index) => {
+    const icon = getContextIcon(item.type);
+    return `
+      <div class="mention-item" data-index="${index}">
+        <span class="mention-icon">${icon}</span>
+        <div class="mention-text">
+          <div class="mention-label">${item.label}</div>
+          <div class="mention-detail">${item.detail}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  updateMentionSelection();
+}
+
+function updateMentionSelection() {
+  const items = mentionPopup.querySelectorAll('.mention-item');
+  items.forEach((item, index) => {
+    item.classList.toggle('selected', index === selectedMentionIndex);
+  });
+}
+
+function selectMention(index) {
+  const items = mentionPopup.querySelectorAll('.mention-item');
+  if (!items[index]) return;
+  
+  const text = input.value;
+  const beforeMention = text.substring(0, mentionStartPos);
+  const afterCursor = text.substring(input.selectionStart);
+  
+  // Get selected item data
+  vscode.postMessage({ command: 'getMentionData', index });
+  
+  hideMentionPopup();
+}
+
+// Context Actions
+function addCurrentSelection() {
+  vscode.postMessage({ command: 'getCurrentSelection' });
+}
+
+function addWorkspaceContext() {
+  vscode.postMessage({ command: 'getWorkspaceInfo' });
+}
+
+function handleContextItemClick(e) {
+  if (e.target.classList.contains('remove')) {
+    const contextItem = e.target.closest('.context-item');
+    const index = Array.from(contextItems.children).indexOf(contextItem);
+    removeContextReference(index);
+  }
+}
+
+// Settings Functions
+function showSettings() {
+  loadCurrentSettings();
+  settingsOverlay.classList.add('show');
+}
+
+function hideSettings() {
+  settingsOverlay.classList.remove('show');
+}
+
+function loadCurrentSettings() {
+  vscode.postMessage({ command: 'getCurrentSettings' });
+}
+
+function saveSettings() {
+  const settings = {
+    model: document.getElementById('model-select').value,
+    maxTurns: parseInt(document.getElementById('max-turns').value),
+    serverUrl: document.getElementById('server-url').value,
+    outputFormat: document.getElementById('output-format').value,
+    permissionMode: document.getElementById('permission-mode').value,
+    allowedTools: Array.from(document.querySelectorAll('#allowed-tools input:checked')).map(cb => cb.value),
+    mcpConfig: document.getElementById('mcp-config').value,
+    permissionPromptTool: document.getElementById('permission-prompt-tool').value,
+    systemPrompt: document.getElementById('system-prompt').value,
+    appendSystemPrompt: document.getElementById('append-system-prompt').value
+  };
+  
+  vscode.postMessage({ command: 'saveSettings', settings });
+  hideSettings();
+}
+
+function resetSettings() {
+  if (confirm('Reset all settings to defaults?')) {
+    vscode.postMessage({ command: 'resetSettings' });
+    hideSettings();
+  }
+}
+
+function populateSettings(settings) {
+  document.getElementById('model-select').value = settings.model || 'claude-3-5-sonnet-20241022';
+  document.getElementById('max-turns').value = settings.maxTurns || 5;
+  document.getElementById('server-url').value = settings.serverUrl || 'http://localhost:8765';
+  document.getElementById('output-format').value = settings.outputFormat || 'stream-json';
+  document.getElementById('permission-mode').value = settings.permissionMode || 'default';
+  document.getElementById('mcp-config').value = settings.mcpConfig || '';
+  document.getElementById('permission-prompt-tool').value = settings.permissionPromptTool || '';
+  document.getElementById('system-prompt').value = settings.systemPrompt || '';
+  document.getElementById('append-system-prompt').value = settings.appendSystemPrompt || '';
+  
+  // Update allowed tools checkboxes
+  const allowedTools = settings.allowedTools || ['Read', 'Write', 'Bash', 'Python'];
+  document.querySelectorAll('#allowed-tools input[type="checkbox"]').forEach(cb => {
+    cb.checked = allowedTools.includes(cb.value);
+  });
+}
+
+// Enhanced Message Handling
+window.addEventListener('message', event => {
+  const message = event.data;
+  
+  switch (message.command) {
+    case 'workspaceFiles':
+      populateFileBrowser(message.files);
+      break;
+    case 'mentionSuggestions':
+      populateMentionPopup(message.suggestions);
+      break;
+    case 'mentionData':
+      insertMentionData(message.data);
+      break;
+    case 'currentSelection':
+      if (message.text) {
+        addContextReference('selection', 'Current Selection', message.text);
+      }
+      break;
+    case 'workspaceInfo':
+      addContextReference('workspace', 'Workspace Info', message.info);
+      break;
+    case 'currentSettings':
+      populateSettings(message.settings);
+      break;
+  }
+});
+
+function insertMentionData(data) {
+  addContextReference(data.type, data.path, data.content);
+  
+  // Also insert reference in input
+  const text = input.value;
+  const beforeMention = text.substring(0, mentionStartPos);
+  const afterCursor = text.substring(input.selectionStart);
+  const reference = `@${data.label}`;
+  
+  input.value = beforeMention + reference + afterCursor;
+  input.setSelectionRange(mentionStartPos + reference.length, mentionStartPos + reference.length);
+}
+
+// Initialize Enhanced Features
+function initializeEnhancedFeatures() {
+  // Load workspace files on startup
+  vscode.postMessage({ command: 'getWorkspaceFiles' });
+  
+  // Hide file browser and mention popup on outside clicks
+  document.addEventListener('click', (e) => {
+    if (!fileBrowser.contains(e.target) && !addFilesButton.contains(e.target)) {
+      hideFileBrowser();
+    }
+    if (!mentionPopup.contains(e.target) && e.target !== input) {
+      hideMentionPopup();
+    }
+  });
+}
+
+// Initialize when page loads
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeEnhancedFeatures);
+} else {
+  initializeEnhancedFeatures();
+}

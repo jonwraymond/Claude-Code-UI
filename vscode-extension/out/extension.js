@@ -325,6 +325,73 @@ function openPanel(context) {
                 panel.webview.postMessage({ type: 'error', text: String(err) });
             }
         }
+        else if (msg.command === 'getWorkspaceFiles') {
+            // Get all workspace files for file browser
+            const workspaceFiles = await getWorkspaceFiles();
+            panel.webview.postMessage({
+                command: 'workspaceFiles',
+                files: workspaceFiles
+            });
+        }
+        else if (msg.command === 'getCurrentSelection') {
+            // Get current editor selection
+            const editor = vscode.window.activeTextEditor;
+            if (editor && !editor.selection.isEmpty) {
+                const selectedText = editor.document.getText(editor.selection);
+                panel.webview.postMessage({
+                    command: 'currentSelection',
+                    text: selectedText,
+                    fileName: editor.document.fileName
+                });
+            }
+        }
+        else if (msg.command === 'getWorkspaceInfo') {
+            // Get workspace information
+            const workspaceInfo = await getWorkspaceInfo();
+            panel.webview.postMessage({
+                command: 'workspaceInfo',
+                info: workspaceInfo
+            });
+        }
+        else if (msg.command === 'getMentionSuggestions') {
+            // Get @ mention suggestions
+            const suggestions = await getMentionSuggestions(msg.query);
+            panel.webview.postMessage({
+                command: 'mentionSuggestions',
+                suggestions: suggestions
+            });
+        }
+        else if (msg.command === 'getMentionData') {
+            // Get data for selected mention
+            const mentionData = await getMentionData(msg.index);
+            panel.webview.postMessage({
+                command: 'mentionData',
+                data: mentionData
+            });
+        }
+        else if (msg.command === 'getCurrentSettings') {
+            // Get current VS Code settings
+            const currentSettings = getCurrentSettings();
+            panel.webview.postMessage({
+                command: 'currentSettings',
+                settings: currentSettings
+            });
+        }
+        else if (msg.command === 'saveSettings') {
+            // Save settings to VS Code configuration
+            await saveSettings(msg.settings);
+            vscode.window.showInformationMessage('Settings saved successfully');
+        }
+        else if (msg.command === 'resetSettings') {
+            // Reset settings to defaults
+            await resetSettings();
+            const currentSettings = getCurrentSettings();
+            panel.webview.postMessage({
+                command: 'currentSettings',
+                settings: currentSettings
+            });
+            vscode.window.showInformationMessage('Settings reset to defaults');
+        }
     });
     // Clean up WebSocket on panel disposal
     panel.onDidDispose(() => {
@@ -332,6 +399,171 @@ function openPanel(context) {
             ws.close();
         }
     });
+}
+// Helper functions for enhanced features
+async function getWorkspaceFiles() {
+    const files = [];
+    if (!vscode.workspace.workspaceFolders) {
+        return files;
+    }
+    for (const folder of vscode.workspace.workspaceFolders) {
+        try {
+            const fileUris = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/*'), new vscode.RelativePattern(folder, '{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**}'), 500 // Limit to 500 files for performance
+            );
+            for (const uri of fileUris) {
+                try {
+                    const stat = await vscode.workspace.fs.stat(uri);
+                    if (stat.type === vscode.FileType.File) {
+                        const relativePath = vscode.workspace.asRelativePath(uri);
+                        files.push({
+                            path: relativePath,
+                            name: uri.path.split('/').pop() || '',
+                            size: stat.size
+                        });
+                    }
+                }
+                catch (error) {
+                    // Skip files that can't be accessed
+                    continue;
+                }
+            }
+        }
+        catch (error) {
+            console.error('Error reading workspace files:', error);
+        }
+    }
+    return files.sort((a, b) => a.path.localeCompare(b.path));
+}
+async function getWorkspaceInfo() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        return 'No workspace folder open';
+    }
+    const info = [];
+    info.push(`Workspace: ${workspaceFolders[0].name}`);
+    info.push(`Path: ${workspaceFolders[0].uri.fsPath}`);
+    try {
+        // Get file count
+        const files = await getWorkspaceFiles();
+        info.push(`Files: ${files.length}`);
+        // Get language info from open editors
+        const openEditors = vscode.window.visibleTextEditors;
+        if (openEditors.length > 0) {
+            const languages = [...new Set(openEditors.map(e => e.document.languageId))];
+            info.push(`Open languages: ${languages.join(', ')}`);
+        }
+    }
+    catch (error) {
+        info.push('Error gathering workspace statistics');
+    }
+    return info.join('\n');
+}
+async function getMentionSuggestions(query) {
+    const suggestions = [];
+    // File suggestions
+    const files = await getWorkspaceFiles();
+    const matchingFiles = files
+        .filter(file => file.path.toLowerCase().includes(query.toLowerCase()))
+        .slice(0, 10)
+        .map(file => ({
+        type: 'file',
+        label: file.path,
+        detail: `File (${formatFileSize(file.size)})`
+    }));
+    suggestions.push(...matchingFiles);
+    // Symbol suggestions (if query is long enough)
+    if (query.length >= 2) {
+        try {
+            const symbolSuggestions = await getSymbolSuggestions(query);
+            suggestions.push(...symbolSuggestions.slice(0, 5));
+        }
+        catch (error) {
+            // Ignore symbol search errors
+        }
+    }
+    return suggestions;
+}
+async function getSymbolSuggestions(query) {
+    const suggestions = [];
+    // Search for symbols across workspace
+    try {
+        const symbols = await vscode.commands.executeCommand('vscode.executeWorkspaceSymbolProvider', query);
+        if (symbols) {
+            suggestions.push(...symbols.slice(0, 5).map(symbol => ({
+                type: 'symbol',
+                label: symbol.name,
+                detail: `${vscode.SymbolKind[symbol.kind]} in ${vscode.workspace.asRelativePath(symbol.location.uri)}`
+            })));
+        }
+    }
+    catch (error) {
+        // Workspace symbol search not available
+    }
+    return suggestions;
+}
+function formatFileSize(bytes) {
+    if (bytes === 0)
+        return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+async function getMentionData(index) {
+    // This would be called with the selected mention index
+    // For now, return a placeholder - in a full implementation, 
+    // we'd store the suggestions and retrieve by index
+    return {
+        type: 'file',
+        path: 'example.ts',
+        label: 'example.ts',
+        content: 'File content would be loaded here'
+    };
+}
+function getCurrentSettings() {
+    const config = vscode.workspace.getConfiguration('claudeCode');
+    return {
+        model: config.get('model'),
+        maxTurns: config.get('maxTurns'),
+        serverUrl: config.get('serverUrl'),
+        outputFormat: config.get('outputFormat'),
+        permissionMode: config.get('permissionMode'),
+        allowedTools: config.get('allowedTools'),
+        mcpConfig: config.get('mcpConfig'),
+        permissionPromptTool: config.get('permissionPromptTool'),
+        systemPrompt: config.get('systemPrompt'),
+        appendSystemPrompt: config.get('appendSystemPrompt')
+    };
+}
+async function saveSettings(settings) {
+    const config = vscode.workspace.getConfiguration('claudeCode');
+    // Save each setting
+    const settingsMap = {
+        model: 'model',
+        maxTurns: 'maxTurns',
+        serverUrl: 'serverUrl',
+        outputFormat: 'outputFormat',
+        permissionMode: 'permissionMode',
+        allowedTools: 'allowedTools',
+        mcpConfig: 'mcpConfig',
+        permissionPromptTool: 'permissionPromptTool',
+        systemPrompt: 'systemPrompt',
+        appendSystemPrompt: 'appendSystemPrompt'
+    };
+    for (const [frontendKey, configKey] of Object.entries(settingsMap)) {
+        if (settings[frontendKey] !== undefined) {
+            await config.update(configKey, settings[frontendKey], vscode.ConfigurationTarget.Workspace);
+        }
+    }
+}
+async function resetSettings() {
+    const config = vscode.workspace.getConfiguration('claudeCode');
+    // Reset to defaults by setting to undefined
+    const keys = ['model', 'maxTurns', 'serverUrl', 'outputFormat', 'permissionMode',
+        'allowedTools', 'mcpConfig', 'permissionPromptTool', 'systemPrompt', 'appendSystemPrompt'];
+    for (const key of keys) {
+        await config.update(key, undefined, vscode.ConfigurationTarget.Workspace);
+    }
 }
 function deactivate() { }
 //# sourceMappingURL=extension.js.map
