@@ -7,6 +7,7 @@ from typing import AsyncGenerator, Dict, Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import pytest_asyncio
 import aiohttp
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
@@ -22,14 +23,14 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def claude_server() -> ClaudeCodeServer:
     """Create a Claude Code server instance for testing."""
     server = ClaudeCodeServer(host="127.0.0.1", port=0)  # Port 0 for random port
     return server
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_client(claude_server: ClaudeCodeServer) -> AsyncGenerator[TestClient, None]:
     """Create a test client for the Claude Code server."""
     async with TestClient(TestServer(claude_server.app)) as client:

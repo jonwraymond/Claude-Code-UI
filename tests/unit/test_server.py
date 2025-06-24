@@ -9,6 +9,9 @@ from aiohttp import web
 
 from src.claude_code_server import ClaudeCodeServer
 
+# Mark all tests in this module as async
+pytestmark = pytest.mark.asyncio
+
 
 class TestClaudeCodeServer:
     """Test the ClaudeCodeServer class."""
