@@ -14,9 +14,36 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
   <title>Claude Code</title>
 </head>
 <body>
-  <textarea id="input" placeholder="Drop files or type here"></textarea>
-  <button id="send">Send</button>
-  <pre id="output"></pre>
+  <div class="container">
+    <div class="header">
+      <h2>Claude Code</h2>
+      <div class="status" id="status">Disconnected</div>
+    </div>
+    
+    <div class="session-info" id="session-info" style="display: none;">
+      <span class="session-label">Session:</span>
+      <span id="session-id"></span>
+      <span class="session-model" id="session-model"></span>
+    </div>
+    
+    <div class="chat-container" id="chat-container"></div>
+    
+    <div class="input-container">
+      <textarea id="input" placeholder="Ask Claude Code to help with your coding task..."></textarea>
+      <div class="button-group">
+        <button id="send" class="primary">Send</button>
+        <button id="continue" style="display: none;">Continue</button>
+        <button id="clear">Clear</button>
+      </div>
+    </div>
+    
+    <div class="stats" id="stats" style="display: none;">
+      <span>Duration: <span id="duration">-</span>ms</span>
+      <span>Cost: $<span id="cost">-</span></span>
+      <span>Turns: <span id="turns">-</span></span>
+    </div>
+  </div>
+  
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

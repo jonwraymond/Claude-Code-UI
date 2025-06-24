@@ -7,7 +7,9 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "onCommand:claudeCode.sendSelection",
     "onCommand:claudeCode.openPanel"
@@ -28,25 +30,87 @@
       "type": "object",
       "title": "Claude Code",
       "properties": {
-        "claudeCode.apiKey": {
+        "claudeCode.serverUrl": {
           "type": "string",
-          "default": "",
-          "description": "Anthropic API key"
+          "default": "http://localhost:8765",
+          "description": "Claude Code Python server URL"
         },
         "claudeCode.model": {
           "type": "string",
-          "default": "claude-3-opus-20240229",
-          "description": "Model name"
+          "default": "claude-3-5-sonnet-20241022",
+          "enum": [
+            "claude-3-5-sonnet-20241022",
+            "claude-3-opus-20240229",
+            "claude-3-sonnet-20240229",
+            "claude-3-haiku-20240307"
+          ],
+          "description": "Claude model to use"
         },
-        "claudeCode.server": {
-          "type": "string",
-          "default": "https://api.anthropic.com",
-          "description": "API server URL"
-        },
-        "claudeCode.memory": {
+        "claudeCode.maxTurns": {
           "type": "number",
-          "default": 8000,
-          "description": "Token limit for Claude"
+          "default": 5,
+          "description": "Maximum number of conversation turns"
+        },
+        "claudeCode.systemPrompt": {
+          "type": "string",
+          "default": "",
+          "description": "Custom system prompt to guide Claude's behavior"
+        },
+        "claudeCode.appendSystemPrompt": {
+          "type": "string",
+          "default": "",
+          "description": "Text to append to the default system prompt"
+        },
+        "claudeCode.permissionMode": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "acceptEdits",
+            "bypassPermissions",
+            "plan"
+          ],
+          "description": "Permission mode for Claude Code operations"
+        },
+        "claudeCode.allowedTools": {
+          "type": "array",
+          "default": [
+            "Read",
+            "Write",
+            "Bash",
+            "Python"
+          ],
+          "description": "List of allowed tools for Claude Code"
+        },
+        "claudeCode.disallowedTools": {
+          "type": "array",
+          "default": [],
+          "description": "List of disallowed tools for Claude Code"
+        },
+        "claudeCode.mcpConfig": {
+          "type": "string",
+          "default": "",
+          "description": "Path to MCP (Model Context Protocol) configuration file"
+        },
+        "claudeCode.permissionPromptTool": {
+          "type": "string",
+          "default": "",
+          "description": "MCP tool for handling permission prompts (e.g., 'mcp__auth__prompt')"
+        },
+        "claudeCode.outputFormat": {
+          "type": "string",
+          "default": "stream-json",
+          "enum": [
+            "text",
+            "json",
+            "stream-json"
+          ],
+          "description": "Output format for Claude Code responses"
+        },
+        "claudeCode.autoStartServer": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start the Claude Code server on extension activation"
         }
       }
     }
@@ -60,14 +124,22 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^18.0.0",
+    "@types/sinon": "^17.0.4",
     "@types/vscode": "^1.85.0",
-    "typescript": "^5.4.0",
-    "eslint": "^8.56.0",
+    "@types/ws": "^8.5.0",
     "@typescript-eslint/eslint-plugin": "^6.11.0",
-    "@typescript-eslint/parser": "^6.11.0"
+    "@typescript-eslint/parser": "^6.11.0",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^8.56.0",
+    "glob": "^8.1.0",
+    "mocha": "^10.8.2",
+    "sinon": "^17.0.1",
+    "typescript": "^5.4.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.54.0"
+    "ws": "^8.16.0"
   }
 }

@@ -6,7 +6,8 @@
     "rootDir": "src",
     "lib": ["es2019", "dom"],
     "sourceMap": true,
-    "strict": true
+    "strict": true,
+    "esModuleInterop": true
   },
   "exclude": ["node_modules", ".vscode-test"]
 }
