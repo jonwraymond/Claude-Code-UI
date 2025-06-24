@@ -51,8 +51,21 @@ function getWebviewContent(webview, extensionUri) {
 <body>
   <div class="container">
     <div class="header">
-      <h2>Claude Code</h2>
-      <div class="header-actions">
+      <div class="tabs-container">
+        <div class="tabs" id="tabs">
+          <div class="tab active" id="tab-1" data-session-id="">
+            <span class="tab-title">New Chat</span>
+            <button class="tab-close" title="Close tab">×</button>
+          </div>
+        </div>
+        <div class="tab-actions">
+          <button class="tab-action-btn" id="new-tab-btn" title="New Chat">+</button>
+          <button class="tab-action-btn" id="cloud-btn" title="Cloud sync">☁️</button>
+          <button class="tab-action-btn" id="history-btn" title="Session History">🕐</button>
+          <button class="tab-action-btn" id="menu-btn" title="Menu">⋯</button>
+        </div>
+      </div>
+      <div class="header-status">
         <div class="status" id="status">Disconnected</div>
         <button class="settings-button" id="settings-button" title="Settings">⚙️</button>
       </div>
@@ -75,6 +88,7 @@ function getWebviewContent(webview, extensionUri) {
             <button class="context-button" id="add-files">📁 Files</button>
             <button class="context-button" id="add-selection">📄 Selection</button>
             <button class="context-button" id="workspace-info">🔍 Workspace</button>
+            <button class="context-button" id="git-context">📦 Git</button>
           </div>
         </div>
         <div class="context-items" id="context-items">
@@ -207,10 +221,61 @@ function getWebviewContent(webview, extensionUri) {
           </div>
         </div>
 
+        <div class="settings-section">
+          <h4>🧠 Memory & Context</h4>
+          <div class="setting-item">
+            <label for="claude-md-content">CLAUDE.md Content:</label>
+            <textarea id="claude-md-content" placeholder="Project memory and context for Claude (auto-saved to CLAUDE.md)" rows="4"></textarea>
+            <button class="browse-button" id="init-claude-md">Initialize CLAUDE.md</button>
+          </div>
+          <div class="setting-item">
+            <label for="working-directories">Working Directories:</label>
+            <input type="text" id="working-directories" placeholder="Additional directories (comma-separated)">
+            <button class="browse-button" id="browse-dirs">Browse</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>🚀 CLI Options</h4>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="verbose-mode" value="verbose"> Verbose Mode
+              <span class="setting-description">Enable detailed logging and debugging output</span>
+            </label>
+          </div>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="continue-conversation" value="continue"> Continue Last Conversation
+              <span class="setting-description">Automatically continue the most recent conversation</span>
+            </label>
+          </div>
+          <div class="setting-item">
+            <label for="resume-session">Resume Session ID:</label>
+            <input type="text" id="resume-session" placeholder="Session ID to resume">
+          </div>
+          <div class="setting-item">
+            <label for="context-limit">Context Token Limit:</label>
+            <input type="number" id="context-limit" min="1000" max="200000" value="100000" placeholder="Token limit for context">
+          </div>
+        </div>
+
         <div class="settings-actions">
           <button class="save-settings" id="save-settings">Save Settings</button>
           <button class="reset-settings" id="reset-settings">Reset to Defaults</button>
         </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Session History Popup -->
+  <div class="history-overlay" id="history-overlay">
+    <div class="history-popup">
+      <div class="history-header">
+        <h3>Session History</h3>
+        <button class="close-history" id="close-history">×</button>
+      </div>
+      <div class="history-content" id="history-content">
+        <div class="history-empty">No previous sessions</div>
       </div>
     </div>
   </div>

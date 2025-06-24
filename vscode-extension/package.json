@@ -111,6 +111,31 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically start the Claude Code server on extension activation"
+        },
+        "claudeCode.workingDirectories": {
+          "type": "string",
+          "default": "",
+          "description": "Additional working directories (comma-separated paths)"
+        },
+        "claudeCode.verboseMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose mode for detailed logging"
+        },
+        "claudeCode.continueConversation": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically continue the most recent conversation"
+        },
+        "claudeCode.resumeSession": {
+          "type": "string",
+          "default": "",
+          "description": "Session ID to resume from previous conversation"
+        },
+        "claudeCode.contextLimit": {
+          "type": "number",
+          "default": 100000,
+          "description": "Context token limit for conversations"
         }
       }
     }
