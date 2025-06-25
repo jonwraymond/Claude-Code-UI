@@ -176,4 +176,16 @@ make coverage
 - **VS Code Tests** (`vscode-extension/src/test/`): Extension tests using Mocha
 - **CI/CD** (`.github/workflows/test.yml`): Automated testing on every push
 
-See `docs/TESTING_GUIDE.md` for comprehensive testing documentation. 
+## Web UI Automated Tests
+
+The React + Tailwind interface uses **Vitest** with React Testing Library.
+
+```bash
+cd web-ui
+npm install
+npm test
+```
+
+These tests run automatically in the `web-ui-tests` workflow.
+
+See `docs/TESTING_GUIDE.md` for comprehensive testing documentation.
