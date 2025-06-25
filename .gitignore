@@ -130,4 +130,5 @@ logs/
 
 # Claude Code specific
 .serena/
-session_*.json 
+session_*.json
+.cursor/ 
