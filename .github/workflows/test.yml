@@ -7,47 +7,6 @@ on:
     branches: [ main ]
 
 jobs:
-  python-tests:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r requirements-test.txt
-    
-    - name: Run linting
-      run: |
-        flake8 src tests --max-line-length=100 --extend-ignore=E203
-        black --check src tests
-        isort --check-only src tests
-    
-    - name: Run type checking
-      run: |
-        mypy src --ignore-missing-imports
-    
-    - name: Run tests with coverage
-      run: |
-        pytest -v --cov=src --cov-report=xml --cov-report=term-missing
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        flags: python
-        name: Python ${{ matrix.python-version }}
-
   vscode-extension-tests:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -76,48 +35,12 @@ jobs:
     - name: Run VS Code Extension tests
       working-directory: ./vscode-extension
       run: npm test
-      if: matrix.os == 'ubuntu-latest'  # VS Code tests require display on Linux
       env:
-        DISPLAY: ':99.0'
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        DISPLAY: ':99.0' # Required for running tests on Linux
     
     - name: Setup display for Linux
       if: matrix.os == 'ubuntu-latest'
       run: |
         /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
         echo ">>> Started xvfb"
-
-  integration-tests:
-    runs-on: ubuntu-latest
-    needs: [python-tests, vscode-extension-tests]
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Install Claude Code CLI
-      run: npm install -g @anthropic-ai/claude-code
-    
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install -r requirements-test.txt
-    
-    - name: Start server in background
-      run: |
-        python src/claude_code_server.py &
-        sleep 5  # Wait for server to start
-    
-    - name: Run integration tests
-      run: |
-        python test_quick.py
-        python test_mcp.py
-        pytest tests/integration -v
-      env:
-        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-    
-    - name: Stop server
-      run: pkill -f claude_code_server.py || true

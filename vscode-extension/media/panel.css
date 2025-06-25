@@ -1361,5 +1361,290 @@ button.primary:hover:not(:disabled) {
 }
 
 .setting-item label:has(input[type="checkbox"]) .setting-description {
-  margin-left: 20px;
+  margin-left: 0;
+}
+
+/* Search Interface */
+.search-interface {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background-color: var(--vscode-editor-inactiveSelectionBackground);
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
+.search-input {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.search-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.search-button {
+  padding: 8px 16px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.search-button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.search-highlight {
+  background-color: var(--vscode-editor-findMatchHighlightBackground);
+  border: 1px solid var(--vscode-editor-findMatchBorder);
+  animation: highlightPulse 1s ease-in-out;
+}
+
+@keyframes highlightPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Memory Interface */
+.memory-interface {
+  padding: 16px;
+  background-color: var(--vscode-editor-inactiveSelectionBackground);
+  border-radius: 6px;
+  margin: 8px 0;
+  border: 1px solid var(--vscode-widget-border);
+}
+
+.memory-interface h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.memory-input {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 12px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--vscode-font-family);
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.memory-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.memory-save, .memory-cancel {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 8px;
+}
+
+.memory-save {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.memory-save:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.memory-cancel {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.memory-cancel:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Terminal Interface */
+.terminal-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 400px;
+  height: 300px;
+  background: var(--vscode-terminal-background);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--vscode-terminal-selectionBackground);
+  border-bottom: 1px solid var(--vscode-widget-border);
+  border-radius: 8px 8px 0 0;
+}
+
+.terminal-header span {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.terminal-close {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.terminal-close:hover {
+  background: var(--vscode-button-secondaryBackground);
+}
+
+.terminal-content {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.terminal-input {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+}
+
+.terminal-execute {
+  padding: 6px 12px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.terminal-execute:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.terminal-output {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Shell Output Container */
+.shell-output-container {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  width: 600px;
+  height: 400px;
+  background: var(--vscode-terminal-background);
+  color: var(--vscode-terminal-foreground);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--vscode-editor-font-family);
+}
+
+.shell-output-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--vscode-terminal-selectionBackground);
+  border-bottom: 1px solid var(--vscode-widget-border);
+  border-radius: 8px 8px 0 0;
+}
+
+.shell-output-header span {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.shell-output-close {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.shell-output-close:hover {
+  background: var(--vscode-button-secondaryBackground);
+}
+
+.shell-output-content {
+  flex: 1;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.shell-output-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Vim Mode Indicator */
+#vim-mode-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: bold;
+  z-index: 1000;
+}
+
+/* Code Block Enhancements */
+.code-block.expanded {
+  max-height: none;
+}
+
+.code-block.expanded .code-block-content {
+  max-height: none;
 }

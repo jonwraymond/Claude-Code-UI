@@ -4,6 +4,10 @@
   "description": "Interact with Claude Code inside VS Code",
   "version": "0.0.1",
   "publisher": "yourname",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/Claude-Code-UI.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -28,127 +32,131 @@
     ],
     "configuration": {
       "type": "object",
-      "title": "Claude Code",
+      "title": "Claude Code Configuration",
       "properties": {
-        "claudeCode.serverUrl": {
-          "type": "string",
-          "default": "http://localhost:8765",
-          "description": "Claude Code Python server URL"
-        },
         "claudeCode.model": {
           "type": "string",
           "default": "claude-3-5-sonnet-20241022",
           "enum": [
             "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
             "claude-3-opus-20240229",
             "claude-3-sonnet-20240229",
             "claude-3-haiku-20240307"
           ],
-          "description": "Claude model to use"
+          "description": "The Claude model to use"
         },
         "claudeCode.maxTurns": {
           "type": "number",
           "default": 5,
+          "minimum": 1,
+          "maximum": 50,
           "description": "Maximum number of conversation turns"
-        },
-        "claudeCode.systemPrompt": {
-          "type": "string",
-          "default": "",
-          "description": "Custom system prompt to guide Claude's behavior"
-        },
-        "claudeCode.appendSystemPrompt": {
-          "type": "string",
-          "default": "",
-          "description": "Text to append to the default system prompt"
         },
         "claudeCode.permissionMode": {
           "type": "string",
           "default": "default",
           "enum": [
             "default",
-            "acceptEdits",
-            "bypassPermissions",
-            "plan"
+            "strict",
+            "relaxed",
+            "tool-calling"
           ],
-          "description": "Permission mode for Claude Code operations"
-        },
-        "claudeCode.allowedTools": {
-          "type": "array",
-          "default": [
-            "Read",
-            "Write",
-            "Bash",
-            "Python"
-          ],
-          "description": "List of allowed tools for Claude Code"
-        },
-        "claudeCode.disallowedTools": {
-          "type": "array",
-          "default": [],
-          "description": "List of disallowed tools for Claude Code"
-        },
-        "claudeCode.mcpConfig": {
-          "type": "string",
-          "default": "",
-          "description": "Path to MCP (Model Context Protocol) configuration file"
-        },
-        "claudeCode.permissionPromptTool": {
-          "type": "string",
-          "default": "",
-          "description": "MCP tool for handling permission prompts (e.g., 'mcp__auth__prompt')"
+          "description": "Permission mode for tool usage"
         },
         "claudeCode.outputFormat": {
           "type": "string",
           "default": "stream-json",
           "enum": [
-            "text",
+            "stream-json",
             "json",
-            "stream-json"
+            "text"
           ],
-          "description": "Output format for Claude Code responses"
+          "description": "Output format for responses"
         },
-        "claudeCode.autoStartServer": {
-          "type": "boolean",
-          "default": false,
-          "description": "Automatically start the Claude Code server on extension activation"
-        },
-        "claudeCode.workingDirectories": {
+        "claudeCode.systemPrompt": {
           "type": "string",
           "default": "",
-          "description": "Additional working directories (comma-separated paths)"
+          "description": "System prompt to prepend to conversations"
         },
-        "claudeCode.verboseMode": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable verbose mode for detailed logging"
-        },
-        "claudeCode.continueConversation": {
-          "type": "boolean",
-          "default": false,
-          "description": "Automatically continue the most recent conversation"
-        },
-        "claudeCode.resumeSession": {
+        "claudeCode.appendSystemPrompt": {
           "type": "string",
           "default": "",
-          "description": "Session ID to resume from previous conversation"
+          "description": "System prompt to append to conversations"
         },
-        "claudeCode.contextLimit": {
-          "type": "number",
-          "default": 100000,
-          "description": "Context token limit for conversations"
+        "claudeCode.permissionPromptTool": {
+          "type": "string",
+          "default": "",
+          "description": "Custom prompt for tool permission requests"
+        },
+        "claudeCode.allowedTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of allowed tools (empty = all allowed)"
+        },
+        "claudeCode.disallowedTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of disallowed tools"
+        },
+        "claudeCode.mcpConfig": {
+          "type": "string",
+          "default": "",
+          "description": "Path to MCP configuration file"
+        },
+        "claudeCode.enableVimMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Vim mode in the chat input"
+        },
+        "claudeCode.autoSaveSession": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save sessions"
+        },
+        "claudeCode.showCostEstimates": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show cost estimates for API usage"
+        },
+        "claudeCode.enableMemories": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable memory system for persistent knowledge"
+        },
+        "claudeCode.defaultContext": {
+          "type": "string",
+          "default": "workspace",
+          "enum": [
+            "workspace",
+            "current-file",
+            "open-files",
+            "git-changes"
+          ],
+          "description": "Default context to include in conversations"
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "echo 'Skipping compile for now'",
+    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts --ignore-pattern 'src/test/**/*'",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "npm run pretest && npm run test",
+    "test:coverage": "nyc npm run test",
+    "coverage:report": "nyc report --reporter=html"
   },
   "devDependencies": {
+    "@istanbuljs/nyc-config-typescript": "^1.0.2",
     "@types/glob": "^7.2.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^18.0.0",
@@ -161,10 +169,12 @@
     "eslint": "^8.56.0",
     "glob": "^8.1.0",
     "mocha": "^10.8.2",
+    "nyc": "^17.1.0",
     "sinon": "^17.0.1",
     "typescript": "^5.4.0"
   },
   "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.33",
     "ws": "^8.16.0"
   }
 }

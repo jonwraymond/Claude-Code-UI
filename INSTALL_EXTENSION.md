@@ -6,7 +6,7 @@
 
 ```bash
 # From the project root
-code vscode-extension
+code .
 ```
 
 ### 2. Install Dependencies
@@ -16,7 +16,13 @@ cd vscode-extension
 npm install
 ```
 
-### 3. Launch Extension Development Host
+### 3. Set Anthropic API Key
+You must have your Anthropic API key set as an environment variable for the extension to work.
+```bash
+export ANTHROPIC_API_KEY="your-api-key-here"
+```
+
+### 4. Launch Extension Development Host
 
 **Option A: Using VS Code UI**
 1. Press `F5` in VS Code
@@ -27,7 +33,7 @@ npm install
 2. Type "Debug: Start Debugging"
 3. Select "VS Code Extension Development"
 
-### 4. Test the Extension
+### 5. Test the Extension
 
 In the new VS Code window that opens:
 1. Press `Cmd+Shift+P` to open Command Palette
@@ -65,27 +71,6 @@ This creates a `.vsix` file like `claude-code-vscode-0.0.1.vsix`
 code --install-extension claude-code-vscode-0.0.1.vsix
 ```
 
-## Method 3: Quick Test Without Installation
-
-### 1. Start the Python Server
-
-```bash
-# Terminal 1
-source venv/bin/activate
-export ANTHROPIC_API_KEY="your-api-key"  # Optional for testing
-python src/claude_code_server.py
-```
-
-### 2. Run Extension in Debug Mode
-
-```bash
-# Terminal 2
-cd vscode-extension
-npm run watch  # Compile TypeScript in watch mode
-```
-
-Then press `F5` in VS Code to launch the extension.
-
 ## Verifying Installation
 
 1. Check Extensions list (`Cmd+Shift+X`):
@@ -106,14 +91,12 @@ Then press `F5` in VS Code to launch the extension.
 - Check Output panel → "Extension Host" for errors
 - Try reloading window: `Cmd+R` (Mac) or `Ctrl+R` (Windows/Linux)
 
-### Server Connection Issues
-- Verify server is running: `http://localhost:8765/health`
-- Check server URL in VS Code settings: `claudeCode.serverUrl`
-- Check Output panel for connection errors
+### API Key Issues
+- Ensure `ANTHROPIC_API_KEY` is set in the environment where you launched VS Code.
+- Check for any error messages in the VS Code window related to authentication.
 
 ### Commands Not Working
 - Ensure extension is activated (check status bar)
-- Check if Python server is running
 - Look for errors in Developer Tools: Help → Toggle Developer Tools
 
 ## Configuration
@@ -123,7 +106,6 @@ After installation, configure the extension:
 1. Open VS Code Settings (`Cmd+,`)
 2. Search for "Claude Code"
 3. Configure:
-   - `claudeCode.serverUrl`: Server URL (default: `http://localhost:8765`)
    - `claudeCode.model`: Claude model to use
    - `claudeCode.maxTurns`: Maximum conversation turns
    - Other settings as needed

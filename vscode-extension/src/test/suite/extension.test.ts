@@ -1,130 +1,191 @@
 import * as assert from 'assert';
-import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import { ClaudeCodePanel } from '../../panel';
+import * as vscode from 'vscode';
+import { activate, deactivate } from '../../extension';
+import { MockFactory } from '../helpers/mockFactory';
 
 suite('Extension Test Suite', () => {
     let sandbox: sinon.SinonSandbox;
+    let registerCommandStub: sinon.SinonStub;
+    let showErrorMessageStub: sinon.SinonStub;
+    let showInformationMessageStub: sinon.SinonStub;
+    let getConfigurationStub: sinon.SinonStub;
+    let mockContext: any;
 
     setup(() => {
         sandbox = sinon.createSandbox();
+        
+        // Stub VS Code API
+        registerCommandStub = sandbox.stub(vscode.commands, 'registerCommand');
+        showErrorMessageStub = sandbox.stub(vscode.window, 'showErrorMessage');
+        showInformationMessageStub = sandbox.stub(vscode.window, 'showInformationMessage');
+        getConfigurationStub = sandbox.stub(vscode.workspace, 'getConfiguration');
+        
+        // Create mock context
+        mockContext = MockFactory.createExtensionContext();
+        
+        // Setup default configuration
+        const mockConfig = MockFactory.createWorkspaceConfiguration();
+        getConfigurationStub.returns(mockConfig);
     });
 
     teardown(() => {
         sandbox.restore();
     });
 
-    test('Extension should be present', () => {
-        assert.ok(vscode.extensions.getExtension('yourname.claude-code-vscode'));
-    });
-
-    test('Should register all commands', async () => {
-        const extension = vscode.extensions.getExtension('yourname.claude-code-vscode');
-        if (!extension) {
-            assert.fail('Extension not found');
-        }
-
-        await extension.activate();
-        
-        // Check that commands are registered
-        const commands = await vscode.commands.getCommands();
-        assert.ok(commands.includes('claudeCode.sendSelection'));
-        assert.ok(commands.includes('claudeCode.openPanel'));
-    });
-
-    test('Send selection command should work with selected text', async () => {
-        // Create a test document
-        const document = await vscode.workspace.openTextDocument({
-            content: 'Hello, this is test code',
-            language: 'plaintext'
+    suite('Activation', () => {
+        test('should register all commands on activation', () => {
+            activate(mockContext);
+            
+            assert.strictEqual(registerCommandStub.callCount, 2);
+            assert.strictEqual(registerCommandStub.firstCall.args[0], 'claudeCode.sendSelection');
+            assert.strictEqual(registerCommandStub.secondCall.args[0], 'claudeCode.openPanel');
         });
-        
-        const editor = await vscode.window.showTextDocument(document);
-        
-        // Select some text
-        const selection = new vscode.Selection(0, 0, 0, 5); // Select "Hello"
-        editor.selection = selection;
 
-        // Mock the panel creation
-        const mockPanel = sandbox.stub(ClaudeCodePanel, 'createOrShow');
-        
-        // Execute command
-        await vscode.commands.executeCommand('claudeCode.sendSelection');
-        
-        // Verify panel was created
-        assert.ok(mockPanel.calledOnce);
+        test('should add disposables to subscriptions', () => {
+            const mockDisposable1 = { dispose: sinon.stub() };
+            const mockDisposable2 = { dispose: sinon.stub() };
+            
+            registerCommandStub.onFirstCall().returns(mockDisposable1);
+            registerCommandStub.onSecondCall().returns(mockDisposable2);
+            
+            activate(mockContext);
+            
+            assert.strictEqual(mockContext.subscriptions.length, 2);
+            assert.strictEqual(mockContext.subscriptions[0], mockDisposable1);
+            assert.strictEqual(mockContext.subscriptions[1], mockDisposable2);
+        });
     });
 
-    test('Open panel command should create webview', async () => {
-        // Mock the panel creation
-        const mockPanel = sandbox.stub(ClaudeCodePanel, 'createOrShow');
+    suite('Send Selection Command', () => {
+        let sendSelectionCommand: Function;
+        let activeTextEditorStub: sinon.SinonStub;
+        let openTextDocumentStub: sinon.SinonStub;
+        let showTextDocumentStub: sinon.SinonStub;
         
-        // Execute command
-        await vscode.commands.executeCommand('claudeCode.openPanel');
-        
-        // Verify panel was created
-        assert.ok(mockPanel.calledOnce);
-    });
-});
+        setup(() => {
+            // Get the sendSelection command handler
+            activate(mockContext);
+            sendSelectionCommand = registerCommandStub.firstCall.args[1];
+            
+            activeTextEditorStub = sandbox.stub(vscode.window, 'activeTextEditor');
+            openTextDocumentStub = sandbox.stub(vscode.workspace, 'openTextDocument');
+            showTextDocumentStub = sandbox.stub(vscode.window, 'showTextDocument');
+        });
 
-suite('Configuration Test Suite', () => {
-    test('Should have default configuration values', () => {
-        const config = vscode.workspace.getConfiguration('claudeCode');
-        
-        assert.strictEqual(config.get('serverUrl'), 'http://localhost:8765');
-        assert.strictEqual(config.get('model'), 'claude-3-5-sonnet-20241022');
-        assert.strictEqual(config.get('maxTurns'), 5);
-        assert.strictEqual(config.get('outputFormat'), 'stream-json');
-    });
+        test('should return early if no active editor', async () => {
+            activeTextEditorStub.value(undefined);
+            
+            await sendSelectionCommand();
+            
+            assert.strictEqual(showErrorMessageStub.called, false);
+            assert.strictEqual(openTextDocumentStub.called, false);
+        });
 
-    test('Should read custom configuration values', async () => {
-        const config = vscode.workspace.getConfiguration('claudeCode');
-        
-        // Update configuration
-        await config.update('serverUrl', 'http://custom:9999', vscode.ConfigurationTarget.Workspace);
-        
-        // Read updated value
-        const updatedConfig = vscode.workspace.getConfiguration('claudeCode');
-        assert.strictEqual(updatedConfig.get('serverUrl'), 'http://custom:9999');
-        
-        // Reset configuration
-        await config.update('serverUrl', undefined, vscode.ConfigurationTarget.Workspace);
-    });
-});
+        test('should handle empty selection', async () => {
+            const mockEditor = MockFactory.createTextEditor('test content');
+            activeTextEditorStub.value(mockEditor);
+            
+            // Mock empty selection
+            mockEditor.selection = new vscode.Selection(0, 0, 0, 0);
+            mockEditor.document.getText.returns('');
+            
+            await sendSelectionCommand();
+            
+            // Should still attempt to query with empty text
+            assert.strictEqual(mockEditor.document.getText.called, true);
+        });
 
-suite('Error Handling Test Suite', () => {
-    test('Should handle server connection errors gracefully', async () => {
-        // This would test error handling when the server is not available
-        // In a real test, we'd mock the WebSocket connection to fail
-        
-        // const showErrorSpy = sandbox.spy(vscode.window, 'showErrorMessage');
-        
-        // Mock server being down
-        const mockWebSocket = sandbox.stub(global, 'WebSocket' as unknown as keyof typeof global);
-        mockWebSocket.throws(new Error('Connection refused'));
-        
-        try {
-            await vscode.commands.executeCommand('claudeCode.openPanel');
-        } catch (error) {
-            // Expected to fail
-        }
-        
-        // In a complete implementation, we'd verify error message was shown
-        // assert.ok(showErrorSpy.calledWith(sinon.match(/connection/i)));
+        test('should show error message on query failure', async () => {
+            const mockEditor = MockFactory.createTextEditor('test content');
+            mockEditor.selection = new vscode.Selection(0, 0, 0, 10);
+            mockEditor.document.getText.returns('test content');
+            activeTextEditorStub.value(mockEditor);
+            
+            // Mock the query module to throw an error
+            const queryModule = require('@anthropic-ai/claude-code');
+            sandbox.stub(queryModule, 'query').throws(new Error('API Error'));
+            
+            await sendSelectionCommand();
+            
+            assert.strictEqual(showErrorMessageStub.called, true);
+            assert.strictEqual(showErrorMessageStub.firstCall.args[0], 'Failed to get response from Claude Code: API Error');
+        });
     });
 
-    test('Should validate configuration values', () => {
-        const config = vscode.workspace.getConfiguration('claudeCode');
-        
-        // Test that model is one of the allowed values
-        const model = config.get<string>('model');
-        const allowedModels = [
-            'claude-3-5-sonnet-20241022',
-            'claude-3-opus-20240229',
-            'claude-3-sonnet-20240229',
-            'claude-3-haiku-20240307'
-        ];
-        
-        assert.ok(model && allowedModels.includes(model));
+    suite('Configuration', () => {
+        test('should get all configuration options correctly', async () => {
+            const mockConfig = MockFactory.createWorkspaceConfiguration();
+            mockConfig.get.withArgs('maxTurns').returns(10);
+            mockConfig.get.withArgs('model').returns('claude-3-opus-20240229');
+            mockConfig.get.withArgs('systemPrompt').returns('You are helpful');
+            mockConfig.get.withArgs('allowedTools').returns(['tool1', 'tool2']);
+            
+            getConfigurationStub.returns(mockConfig);
+            
+            // Activate and get command
+            activate(mockContext);
+            const sendSelectionCommand = registerCommandStub.firstCall.args[1];
+            
+            // Mock active editor
+            const mockEditor = MockFactory.createTextEditor('test');
+            mockEditor.document.getText.returns('test');
+            sandbox.stub(vscode.window, 'activeTextEditor').value(mockEditor);
+            
+            // Spy on query function to check options
+            const queryModule = require('@anthropic-ai/claude-code');
+            const queryStub = sandbox.stub(queryModule, 'query').returns({
+                [Symbol.asyncIterator]: async function* () {
+                    yield { type: 'result', subtype: 'success', result: 'test response' };
+                }
+            });
+            
+            await sendSelectionCommand();
+            
+            const queryOptions = queryStub.firstCall.args[0].options;
+            assert.strictEqual(queryOptions.maxTurns, 10);
+            assert.strictEqual(queryOptions.model, 'claude-3-opus-20240229');
+            assert.strictEqual(queryOptions.systemPrompt, 'You are helpful');
+            assert.deepStrictEqual(queryOptions.allowedTools, ['tool1', 'tool2']);
+        });
+
+        test('should handle MCP config path resolution', async () => {
+            const mockConfig = MockFactory.createWorkspaceConfiguration();
+            mockConfig.get.withArgs('mcpConfig').returns('mcp.json');
+            getConfigurationStub.returns(mockConfig);
+            
+            // Mock workspace folder
+            const mockWorkspaceFolder = {
+                uri: vscode.Uri.file('/workspace')
+            };
+            sandbox.stub(vscode.workspace, 'workspaceFolders').value([mockWorkspaceFolder]);
+            
+            activate(mockContext);
+            const sendSelectionCommand = registerCommandStub.firstCall.args[1];
+            
+            // Mock active editor
+            const mockEditor = MockFactory.createTextEditor('test');
+            mockEditor.document.getText.returns('test');
+            sandbox.stub(vscode.window, 'activeTextEditor').value(mockEditor);
+            
+            // Spy on query function
+            const queryModule = require('@anthropic-ai/claude-code');
+            const queryStub = sandbox.stub(queryModule, 'query').returns({
+                [Symbol.asyncIterator]: async function* () {
+                    yield { type: 'result', subtype: 'success', result: 'test' };
+                }
+            });
+            
+            await sendSelectionCommand();
+            
+            const queryOptions = queryStub.firstCall.args[0].options;
+            assert.strictEqual(queryOptions.mcpConfig, '/workspace/mcp.json');
+        });
+    });
+
+    suite('Deactivation', () => {
+        test('should complete without errors', () => {
+            assert.doesNotThrow(() => deactivate());
+        });
     });
 });

@@ -4,83 +4,46 @@ This guide walks you through testing all features of the Claude Code VS Code ext
 
 ## Prerequisites
 
-1. **Install Python Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+1.  **Install Node.js Dependencies**:
+    ```bash
+    cd vscode-extension
+    npm install
+    npm run compile
+    cd ..
+    ```
 
-2. **Install Claude Code CLI**:
-   ```bash
-   npm install -g @anthropic-ai/claude-code
-   ```
+2.  **Set Anthropic API Key**:
+    ```bash
+    export ANTHROPIC_API_KEY="your-api-key-here"
+    ```
 
-3. **Set Anthropic API Key**:
-   ```bash
-   export ANTHROPIC_API_KEY="your-api-key-here"
-   # Or create a .env file with: ANTHROPIC_API_KEY=your-api-key-here
-   ```
+## Step 1: Launch VS Code Extension
 
-4. **Install VS Code Extension Dependencies**:
-   ```bash
-   cd vscode-extension
-   npm install
-   npm run compile
-   cd ..
-   ```
+1.  Open VS Code in the project's root directory:
+    ```bash
+    code .
+    ```
+2.  Press `F5` to launch a new VS Code window (Extension Development Host) with the extension loaded.
 
-## Step 1: Start the Python Server
+## Step 2: Test Basic Features
 
-In one terminal window:
+### 2.1 Open Claude Code Panel
+1. Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux).
+2. Type "Claude Code: Open Panel" and press Enter.
 
-```bash
-# Option 1: Using the start script
-./start_server.sh
+✅ **Expected**: Claude Code panel opens in the sidebar. The status indicator should show "Connected".
 
-# Option 2: Direct Python command
-python src/claude_code_server.py
-
-# Option 3: With custom host/port
-python src/claude_code_server.py --host 127.0.0.1 --port 8765
-```
-
-You should see:
-```
-INFO:__main__:Starting Claude Code Server on 127.0.0.1:8765
-```
-
-## Step 2: Launch VS Code Extension
-
-1. Open VS Code
-2. Open the project folder: `code .`
-3. Navigate to the extension directory: `cd vscode-extension`
-4. Press `F5` to launch a new VS Code window with the extension loaded
-
-## Step 3: Test Basic Features
-
-### 3.1 Open Claude Code Panel
-1. Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
-2. Type "Claude Code: Open Panel"
-3. Press Enter
-
-✅ **Expected**: Claude Code panel opens in the sidebar
-
-### 3.2 Test Connection
-The status indicator should show "Connected" in green.
-
-✅ **Expected**: Connected status, no error messages
-
-### 3.3 Send a Simple Message
+### 2.2 Send a Simple Message
 Type in the chat: "Hello, can you see this message?"
 
 ✅ **Expected**: 
-- Claude responds
-- Session ID appears
-- Model name is displayed
-- Available tools are listed
+- Claude responds to the message.
+- A Session ID appears in the panel.
+- The model name is displayed.
 
-## Step 4: Test Core Features
+## Step 3: Test Core Features
 
-### 4.1 Code Analysis
+### 3.1 Code Analysis
 1. Create a test file `test.py`:
    ```python
    def calculate_sum(a, b):
@@ -89,149 +52,90 @@ Type in the chat: "Hello, can you see this message?"
    result = calculate_sum(5, "10")
    print(result)
    ```
+2. Select all the code.
+3. Right-click → "Claude Code: Send Selection".
 
-2. Select all the code
-3. Right-click → "Claude Code: Send Selection"
+✅ **Expected**: Claude identifies the type error and suggests fixes in a new editor tab.
 
-✅ **Expected**: Claude identifies the type error and suggests fixes
-
-### 4.2 File Operations
-Send: "Create a new file called hello.py with a simple hello world function"
+### 3.2 File Operations
+Send the prompt: "Create a new file called hello.py with a simple hello world function"
 
 ✅ **Expected**: 
-- Tool usage displayed: "Write"
-- File created in workspace
-- Tool parameters shown (expandable)
+- The tool usage display shows the "Write" tool being used.
+- The `hello.py` file is created in your workspace.
 
-### 4.3 Multi-turn Conversation
+### 3.3 Multi-turn Conversation
 1. First message: "Create a Python function to calculate factorial"
-2. After response, click Continue
-3. Send: "Now add error handling for negative numbers"
+2. After the response, send a follow-up: "Now add error handling for negative numbers"
 
-✅ **Expected**: Claude builds upon previous context
+✅ **Expected**: Claude builds upon the previous context and modifies the function.
 
-## Step 5: Test Drag & Drop
+## Step 4: Test Drag & Drop
 
-### 5.1 Single File
-1. Drag a file from VS Code explorer to the chat
-2. Type: "Explain this code"
-3. Send message
+1. Drag a file from your VS Code explorer into the chat panel.
+2. Type: "Explain this code" and send the message.
 
 ✅ **Expected**: 
-- File appears as attachment with icon
-- File content included in request
-- Claude analyzes the file
+- The file appears as an attachment.
+- Claude analyzes the content of the attached file.
 
-### 5.2 Multiple Files
-1. Select multiple files in explorer
-2. Drag them to the chat
-3. Remove one file by clicking ×
-4. Send with remaining files
+## Step 5: Test Configuration Options
 
-✅ **Expected**: All files handled correctly
+1. Open VS Code settings (`Cmd+,` or `Ctrl+Shift+P` > "Preferences: Open Settings (UI)").
+2. Search for "claudeCode.model".
+3. Change the model to a different one, e.g., "claude-3-opus-20240229".
+4. Send a new message in the panel.
 
-## Step 6: Test Configuration Options
+✅ **Expected**: The new model name is shown in the session info area.
 
-### 6.1 Change Model
-1. Open VS Code settings (`Cmd+,`)
-2. Search for "claudeCode.model"
-3. Change to "claude-3-opus-20240229"
-4. Send a new message
+## Step 6: Test Error Handling
 
-✅ **Expected**: New model shown in session info
+1. Unset your API key:
+   ```bash
+   unset ANTHROPIC_API_KEY
+   ```
+2. Restart the Extension Development Host (`F5`).
+3. Try to send a message.
 
-### 6.2 Custom System Prompt
-1. Set `claudeCode.systemPrompt`: "You are a Python expert. Always use type hints."
-2. Ask: "Create a function to reverse a string"
-
-✅ **Expected**: Response includes type hints
-
-### 6.3 Tool Restrictions
-1. Set `claudeCode.disallowedTools`: ["Write"]
-2. Ask: "Create a new file called test.txt"
-
-✅ **Expected**: Claude explains it cannot write files
-
-## Step 7: Test MCP Integration
-
-### 7.1 Create MCP Config
-Create `test-mcp-config.json`:
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"]
-    }
-  }
-}
-```
-
-### 7.2 Configure Extension
-1. Set `claudeCode.mcpConfig`: "./test-mcp-config.json"
-2. Restart the chat (clear and send new message)
-
-✅ **Expected**: 
-- MCP servers listed in session info
-- Can use commands like "use the filesystem MCP to list files"
-
-## Step 8: Test Error Handling
-
-### 8.1 Max Turns
-1. Set `claudeCode.maxTurns`: 2
-2. Have a 3-turn conversation
-
-✅ **Expected**: Warning message after 2 turns
-
-### 8.2 Connection Error
-1. Stop the Python server
-2. Try to send a message
-
-✅ **Expected**: Error message about connection
-
-## Step 9: Test Advanced Features
-
-### 9.1 Session Resume
-1. Note the session ID from a conversation
-2. Close and reopen the panel
-3. Create code to resume: (would need to implement resume UI)
-
-### 9.2 Statistics
-After a conversation:
-
-✅ **Expected**: 
-- Duration displayed
-- Cost shown
-- Turn count accurate
+✅ **Expected**: An error message about the missing API key is displayed.
 
 ## Troubleshooting
 
-### Server Won't Start
-- Check if port 8765 is already in use: `lsof -i :8765`
-- Verify API key is set: `echo $ANTHROPIC_API_KEY`
-- Check Claude CLI installed: `which claude`
-
 ### Extension Won't Load
-- Ensure you ran `npm install` in vscode-extension
-- Check for TypeScript errors: `npm run compile`
-- Look at VS Code Developer Console: Help → Toggle Developer Tools
+- Ensure you have run `npm install` and `npm run compile` in the `vscode-extension` directory.
+- Check for TypeScript errors in the terminal where you ran the compile command.
+- Look at the VS Code Developer Console for errors: Help → Toggle Developer Tools.
 
 ### No Response from Claude
-- Check server logs in terminal
-- Verify API key is valid
-- Check network/firewall settings
+- Verify your `ANTHROPIC_API_KEY` is valid and has been exported in the shell where you launched VS Code.
+- Check your network/firewall settings.
+
+## Automated Testing
+
+The project includes automated tests for the VS Code extension.
+
+### Running Tests
+
+```bash
+# Navigate to the extension directory
+cd vscode-extension
+
+# Run the tests
+npm test
+```
+
+### Test Structure
+- **VS Code Tests** (`vscode-extension/src/test/`): Extension tests using Mocha that run in a special instance of VS Code.
+- **CI/CD** (`.github/workflows/test.yml`): Automated testing on every push.
 
 ## Test Checklist
 
-- [ ] Server starts successfully
 - [ ] Extension loads in VS Code
 - [ ] Can connect to server
 - [ ] Basic chat works
 - [ ] Tool usage displayed
 - [ ] File drag & drop works
-- [ ] Multiple files handled
 - [ ] Configuration changes take effect
-- [ ] MCP servers work (if configured)
 - [ ] Error states handled gracefully
 - [ ] Statistics displayed correctly
 - [ ] Session management works

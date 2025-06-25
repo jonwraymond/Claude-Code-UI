@@ -1,0 +1,14 @@
+{
+  "claudeCode.model": "claude-3-5-sonnet-20241022",
+  "claudeCode.maxTurns": 5,
+  "claudeCode.permissionMode": "default",
+  "claudeCode.outputFormat": "stream-json",
+  "claudeCode.allowedTools": [
+    "Read",
+    "Write",
+    "Bash",
+    "Python"
+  ],
+  "claudeCode.systemPrompt": "You are a helpful AI assistant that helps with coding tasks.",
+  "claudeCode.mcpConfig": "./examples/mcp-config.example.json"
+} 

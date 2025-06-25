@@ -37,6 +37,12 @@ const menuButton = document.getElementById('menu-btn');
 const historyOverlay = document.getElementById('history-overlay');
 const closeHistoryButton = document.getElementById('close-history');
 const historyContent = document.getElementById('history-content');
+const settingsButton = document.getElementById('settings-btn');
+const settingsOverlay = document.getElementById('settings-overlay');
+const closeSettingsButton = document.getElementById('close-settings');
+const saveSettingsButton = document.getElementById('save-settings');
+const resetSettingsButton = document.getElementById('reset-settings');
+const settingsContent = document.querySelector('.settings-content');
 
 // State
 let currentSessionId = null;
@@ -48,6 +54,10 @@ let dragCounter = 0;
 let tabs = [{ id: 'tab-1', sessionId: '', title: 'New Chat', chatHistory: [] }];
 let activeTabId = 'tab-1';
 let tabCounter = 1;
+
+// Checkpoint Management State
+let conversationCheckpoints = new Map(); // Map of sessionId -> array of checkpoints
+let currentCheckpointIndex = new Map(); // Map of sessionId -> current checkpoint index
 
 // Enhanced State
 let contextReferences = [];
@@ -98,6 +108,11 @@ newTabButton.addEventListener('click', createNewTab);
 historyButton.addEventListener('click', showSessionHistory);
 closeHistoryButton.addEventListener('click', hideSessionHistory);
 tabsContainer.addEventListener('click', handleTabClick);
+
+settingsButton.addEventListener('click', showSettings);
+closeSettingsButton.addEventListener('click', hideSettings);
+saveSettingsButton.addEventListener('click', saveSettings);
+resetSettingsButton.addEventListener('click', resetSettings);
 
 // File browser functionality
 fileSearch.addEventListener('input', filterFiles);
@@ -1211,6 +1226,11 @@ window.addEventListener('message', event => {
       // Save session to history
       saveSessionToHistory(msg.sessionId, msg.model);
       
+      // Create initial checkpoint
+      setTimeout(() => {
+        createCheckpoint('Session Start');
+      }, 100);
+      
       // Show available tools
       if (msg.tools && msg.tools.length > 0) {
         addSystemMessage(`Available tools: ${msg.tools.join(', ')}`);
@@ -1283,6 +1303,9 @@ window.addEventListener('message', event => {
       addFileAttachment(msg.name, msg.text);
       addSystemMessage(`File loaded: ${msg.name}`, 'success');
       break;
+    case 'currentSettings':
+        populateSettings(msg.settings);
+        break;
   }
 });
 
@@ -1291,11 +1314,7 @@ window.addEventListener('message', event => {
 // ============================================================================
 
 // Enhanced UI Elements
-const settingsButton = document.getElementById('settings-button');
-const settingsOverlay = document.getElementById('settings-overlay');
-const closeSettingsButton = document.getElementById('close-settings');
-const saveSettingsButton = document.getElementById('save-settings');
-const resetSettingsButton = document.getElementById('reset-settings');
+// Settings elements are already declared above
 
 // Memory and CLI Elements
 const claudeMdContent = document.getElementById('claude-md-content');
@@ -1635,34 +1654,53 @@ function hideSlashCommandPopup() {
 
 function getSlashCommands() {
   return [
-    { name: 'clear', description: 'Clear conversation history', category: 'session' },
-    { name: 'compact', description: 'Compact conversation with optional focus instructions', category: 'session' },
-    { name: 'model', description: 'Select or change the AI model', category: 'config' },
-    { name: 'memory', description: 'Edit CLAUDE.md memory files', category: 'memory' },
-    { name: 'init', description: 'Initialize project with CLAUDE.md guide', category: 'memory' },
-    { name: 'status', description: 'View account and system statuses', category: 'info' },
-    { name: 'cost', description: 'Show token usage statistics', category: 'info' },
-    { name: 'help', description: 'Get usage help', category: 'info' },
-    { name: 'review', description: 'Request code review', category: 'dev' },
-    { name: 'mcp', description: 'Manage MCP server connections', category: 'config' },
-    { name: 'permissions', description: 'View or update permissions', category: 'config' },
-    { name: 'add-dir', description: 'Add additional working directories', category: 'config' },
-    { name: 'config', description: 'View/modify configuration', category: 'config' },
-    { name: 'doctor', description: 'Check Claude Code installation health', category: 'debug' },
-    { name: 'vim', description: 'Enter vim mode for alternating insert and command modes', category: 'mode' },
-    { name: 'terminal', description: 'Open interactive terminal interface', category: 'dev' },
-    { name: 'term', description: 'Quick terminal command execution', category: 'dev' },
-    { name: 'shell', description: 'Execute shell commands with output', category: 'dev' },
-    { name: 'cmd', description: 'Run command line tools', category: 'dev' },
-    { name: 'terminal-setup', description: 'Install Shift+Enter key binding', category: 'setup' },
-    { name: 'git-status', description: 'Show git repository status', category: 'git' },
-    { name: 'git-diff', description: 'Show git changes (diff)', category: 'git' },
-    { name: 'git-log', description: 'Show recent git commits', category: 'git' },
-    { name: 'git-branch', description: 'Show current git branch and available branches', category: 'git' },
-    { name: 'git-add', description: 'Stage files for commit', category: 'git' },
-    { name: 'git-commit', description: 'Create a commit with message', category: 'git' },
-    { name: 'git-push', description: 'Push commits to remote', category: 'git' },
-    { name: 'git-pull', description: 'Pull latest changes from remote', category: 'git' }
+    // Core Commands
+    { command: '/continue', description: 'Continue the last response', category: 'core' },
+    { command: '/undo', description: 'Undo the last action', category: 'core' },
+    { command: '/redo', description: 'Redo the last undone action', category: 'core' },
+    { command: '/cancel', description: 'Cancel the current operation', category: 'core' },
+    { command: '/diff', description: 'Show differences between original and modified files', category: 'core' },
+    { command: '/help', description: 'Show available commands and shortcuts', category: 'core' },
+    
+    // Checkpoint Commands
+    { command: '/checkpoint [name]', description: 'Create a checkpoint of current conversation', category: 'checkpoint' },
+    { command: '/checkpoints', description: 'Show all checkpoints', category: 'checkpoint' },
+    { command: '/rollback [number]', description: 'Rollback to a specific checkpoint', category: 'checkpoint' },
+    { command: '/delete-checkpoint [number]', description: 'Delete a checkpoint', category: 'checkpoint' },
+    
+    // Configuration Commands
+    { command: '/model [name]', description: 'Change the AI model', category: 'config' },
+    { command: '/tools', description: 'Manage allowed/disallowed tools', category: 'config' },
+    { command: '/mcp', description: 'Manage MCP server connections', category: 'config' },
+    { command: '/settings', description: 'Open settings panel', category: 'config' },
+    
+    // Search & Navigation
+    { command: '/search [query]', description: 'Search through conversation history', category: 'search' },
+    { command: '/history', description: 'Show session history', category: 'search' },
+    
+    // Shell Commands
+    { command: '/shell [command]', description: 'Execute a shell command', category: 'shell' },
+    { command: '/terminal', description: 'Open terminal interface', category: 'shell' },
+    { command: '/cd [path]', description: 'Change directory', category: 'shell' },
+    { command: '/ls [path]', description: 'List directory contents', category: 'shell' },
+    { command: '/pwd', description: 'Show current directory', category: 'shell' },
+    
+    // Memory Commands
+    { command: '/remember [content]', description: 'Create a memory', category: 'memory' },
+    { command: '/recall [query]', description: 'Search memories', category: 'memory' },
+    { command: '/forget [id]', description: 'Delete a memory', category: 'memory' },
+    
+    // Session Management
+    { command: '/new', description: 'Start a new session', category: 'session' },
+    { command: '/resume [id]', description: 'Resume a previous session', category: 'session' },
+    { command: '/save', description: 'Save current session', category: 'session' },
+    { command: '/export', description: 'Export conversation', category: 'session' },
+    
+    // View Commands
+    { command: '/clear', description: 'Clear the chat', category: 'view' },
+    { command: '/focus [context]', description: 'Focus on specific context', category: 'view' },
+    { command: '/expand', description: 'Expand all code blocks', category: 'view' },
+    { command: '/collapse', description: 'Collapse all code blocks', category: 'view' }
   ];
 }
 
@@ -1841,81 +1879,53 @@ function handleContextItemClick(e) {
 
 // Settings Functions
 function showSettings() {
-  loadCurrentSettings();
-  settingsOverlay.classList.add('show');
+    vscode.postMessage({ command: 'getCurrentSettings' });
+    settingsOverlay.classList.add('show');
 }
 
 function hideSettings() {
-  settingsOverlay.classList.remove('show');
-}
-
-function loadCurrentSettings() {
-  vscode.postMessage({ command: 'getCurrentSettings' });
+    settingsOverlay.classList.remove('show');
 }
 
 function saveSettings() {
-  const settings = {
-    model: document.getElementById('model-select').value,
-    maxTurns: parseInt(document.getElementById('max-turns').value),
-    serverUrl: document.getElementById('server-url').value,
-    outputFormat: document.getElementById('output-format').value,
-    permissionMode: document.getElementById('permission-mode').value,
-    allowedTools: Array.from(document.querySelectorAll('#allowed-tools input:checked')).map(cb => cb.value),
-    mcpConfig: document.getElementById('mcp-config').value,
-    permissionPromptTool: document.getElementById('permission-prompt-tool').value,
-    systemPrompt: document.getElementById('system-prompt').value,
-    appendSystemPrompt: document.getElementById('append-system-prompt').value,
-    // Memory and CLI options
-    claudeMdContent: document.getElementById('claude-md-content').value,
-    workingDirectories: document.getElementById('working-directories').value,
-    verboseMode: document.getElementById('verbose-mode').checked,
-    continueConversation: document.getElementById('continue-conversation').checked,
-    resumeSession: document.getElementById('resume-session').value,
-    contextLimit: parseInt(document.getElementById('context-limit').value)
-  };
-  
-  // Save CLAUDE.md content if provided
-  if (settings.claudeMdContent) {
-    saveClaudeMdContent(settings.claudeMdContent);
-  }
-  
-  vscode.postMessage({ command: 'saveSettings', settings });
-  hideSettings();
+    const settings = {
+        model: document.getElementById('claude-model-select').value,
+        maxTurns: parseInt(document.getElementById('claude-max-turns').value, 10),
+        systemPrompt: document.getElementById('claude-system-prompt').value,
+    };
+    vscode.postMessage({ command: 'saveSettings', settings: settings });
+    hideSettings();
+    addSystemMessage('Settings saved.', 'success');
 }
 
 function resetSettings() {
-  if (confirm('Reset all settings to defaults?')) {
-    vscode.postMessage({ command: 'resetSettings' });
-    hideSettings();
-  }
+    if (confirm('Are you sure you want to reset all settings to their defaults?')) {
+        vscode.postMessage({ command: 'resetSettings' });
+        hideSettings();
+        addSystemMessage('Settings have been reset.', 'info');
+    }
 }
 
 function populateSettings(settings) {
-  document.getElementById('model-select').value = settings.model || 'claude-3-5-sonnet-20241022';
-  document.getElementById('max-turns').value = settings.maxTurns || 5;
-  document.getElementById('server-url').value = settings.serverUrl || 'http://localhost:8765';
-  document.getElementById('output-format').value = settings.outputFormat || 'stream-json';
-  document.getElementById('permission-mode').value = settings.permissionMode || 'default';
-  document.getElementById('mcp-config').value = settings.mcpConfig || '';
-  document.getElementById('permission-prompt-tool').value = settings.permissionPromptTool || '';
-  document.getElementById('system-prompt').value = settings.systemPrompt || '';
-  document.getElementById('append-system-prompt').value = settings.appendSystemPrompt || '';
-  
-  // Memory and context settings
-  document.getElementById('claude-md-content').value = settings.claudeMdContent || '';
-  document.getElementById('working-directories').value = settings.workingDirectories || '';
-  
-  // CLI options
-  document.getElementById('verbose-mode').checked = settings.verboseMode || false;
-  document.getElementById('continue-conversation').checked = settings.continueConversation || false;
-  document.getElementById('resume-session').value = settings.resumeSession || '';
-  document.getElementById('context-limit').value = settings.contextLimit || 100000;
-  
-  // Update allowed tools checkboxes
-  const allowedTools = settings.allowedTools || ['Read', 'Write', 'Bash', 'Python'];
-  document.querySelectorAll('#allowed-tools input[type="checkbox"]').forEach(cb => {
-    cb.checked = allowedTools.includes(cb.value);
-  });
+    settingsContent.innerHTML = `
+        <div class="setting-item">
+            <label for="claude-model-select">Model</label>
+            <select id="claude-model-select">
+                <option value="claude-3-opus-20240229" ${settings.model === 'claude-3-opus-20240229' ? 'selected' : ''}>Claude 3 Opus</option>
+                <option value="claude-3-sonnet-20240229" ${settings.model === 'claude-3-sonnet-20240229' ? 'selected' : ''}>Claude 3 Sonnet</option>
+                <option value="claude-3-haiku-20240307" ${settings.model === 'claude-3-haiku-20240307' ? 'selected' : ''}>Claude 3 Haiku</option>
+                <option value="claude-3-5-sonnet-20241022" ${settings.model === 'claude-3-5-sonnet-20241022' || !settings.model ? 'selected' : ''}>Claude 3.5 Sonnet</option>
+            </select>
+        </div>
+        <div class="setting-item">
+            <label for="claude-max-turns">Max Turns</label>
+            <input type="number" id="claude-max-turns" value="${settings.maxTurns || 5}">
+        </div>
+        <div class="setting-item">
+            <label for="claude-system-prompt">System Prompt</label>
+            <textarea id="claude-system-prompt" rows="4">${settings.systemPrompt || ''}</textarea>
+        </div>
+    `;
 }
 
 // Enhanced Message Handling
@@ -1947,8 +1957,8 @@ window.addEventListener('message', event => {
       addContextReference('git', 'Git Status', message.status);
       break;
     case 'currentSettings':
-      populateSettings(message.settings);
-      break;
+        populateSettings(message.settings);
+        break;
   }
 });
 
@@ -1987,6 +1997,9 @@ function initializeEnhancedFeatures() {
   // Load command history from localStorage
   loadHistoryFromStorage();
   
+  // Load checkpoints from localStorage
+  loadCheckpointsFromStorage();
+  
   // Initialize vim mode from localStorage
   const storedVimMode = localStorage.getItem('vimMode');
   if (storedVimMode === 'true') {
@@ -2014,6 +2027,9 @@ function initializeEnhancedFeatures() {
       hideSessionHistory();
     }
   });
+  
+  // Update checkpoint indicator
+  updateCheckpointIndicator();
 }
 
 // Vim Mode Functions
@@ -2519,10 +2535,183 @@ function handleSlashCommand(command) {
   const args = parts.slice(1).join(' ');
   
   switch (cmd) {
+    // Core Commands
+    case '/continue':
+      continueConversation();
+      return true;
+      
+    case '/undo':
+      vscode.postMessage({ command: 'undo' });
+      addSystemMessage('Undo requested', 'info');
+      return true;
+      
+    case '/redo':
+      vscode.postMessage({ command: 'redo' });
+      addSystemMessage('Redo requested', 'info');
+      return true;
+      
+    case '/cancel':
+      cancelCurrentOperation();
+      return true;
+      
+    case '/diff':
+      vscode.postMessage({ command: 'showDiff' });
+      addSystemMessage('Showing file differences', 'info');
+      return true;
+      
+    case '/help':
+      showHelpMessage();
+      return true;
+    
+    // Configuration Commands  
+    case '/model':
+      if (args) {
+        vscode.postMessage({ command: 'changeModel', model: args });
+        addSystemMessage(`Changing model to: ${args}`, 'info');
+      } else {
+        showModelSelection();
+      }
+      return true;
+      
+    case '/tools':
+      showToolsConfiguration();
+      return true;
+      
+    case '/mcp':
+      showMcpConfiguration();
+      return true;
+      
+    case '/settings':
+      showSettings();
+      return true;
+    
+    // Search & Navigation
+    case '/search':
+      if (args) {
+        searchConversationHistory(args);
+      } else {
+        showSearchInterface();
+      }
+      return true;
+      
+    case '/history':
+      showSessionHistory();
+      return true;
+    
+    // Shell Commands
+    case '/shell':
+      if (args) {
+        executeShellCommand(args);
+      } else {
+        showShellHelp();
+      }
+      return true;
+      
+    case '/terminal':
+      if (args) {
+        executeTerminalCommand(args);
+      } else {
+        openTerminalInterface();
+      }
+      return true;
+      
+    case '/cd':
+      if (args) {
+        vscode.postMessage({ command: 'changeDirectory', path: args });
+        addSystemMessage(`Changing directory to: ${args}`, 'info');
+      } else {
+        addSystemMessage('Usage: /cd <path>', 'warning');
+      }
+      return true;
+      
+    case '/ls':
+      vscode.postMessage({ command: 'listDirectory', path: args || '.' });
+      return true;
+      
+    case '/pwd':
+      vscode.postMessage({ command: 'printWorkingDirectory' });
+      return true;
+    
+    // Memory Commands
+    case '/remember':
+      if (args) {
+        vscode.postMessage({ command: 'createMemory', content: args });
+        addSystemMessage('Creating memory...', 'info');
+      } else {
+        showMemoryCreationInterface();
+      }
+      return true;
+      
+    case '/recall':
+      if (args) {
+        vscode.postMessage({ command: 'searchMemories', query: args });
+      } else {
+        vscode.postMessage({ command: 'listMemories' });
+      }
+      return true;
+      
+    case '/forget':
+      if (args) {
+        vscode.postMessage({ command: 'deleteMemory', id: args });
+        addSystemMessage(`Deleting memory: ${args}`, 'info');
+      } else {
+        showMemoryDeletionInterface();
+      }
+      return true;
+    
+    // Session Management
+    case '/new':
+      createNewTab();
+      return true;
+      
+    case '/resume':
+      if (args) {
+        resumeSession(args);
+      } else {
+        showSessionHistory();
+      }
+      return true;
+      
+    case '/save':
+      if (currentSessionId) {
+        saveSessionToHistory(currentSessionId, sessionModelElement.textContent);
+        addSystemMessage('Session saved', 'success');
+      } else {
+        addSystemMessage('No active session to save', 'warning');
+      }
+      return true;
+      
+    case '/export':
+      exportConversation();
+      return true;
+    
+    // View Commands
+    case '/clear':
+      clearChat();
+      return true;
+      
+    case '/focus':
+      if (args) {
+        vscode.postMessage({ command: 'focusContext', context: args });
+        addSystemMessage(`Focusing on: ${args}`, 'info');
+      } else {
+        showFocusInterface();
+      }
+      return true;
+      
+    case '/expand':
+      expandAllCodeBlocks();
+      return true;
+      
+    case '/collapse':
+      collapseAllCodeBlocks();
+      return true;
+    
+    // Legacy/additional commands
     case '/vim':
       toggleVimMode();
       return true;
-    case '/terminal':
+      
     case '/term':
     case '/cmd':
       if (args) {
@@ -2531,14 +2720,34 @@ function handleSlashCommand(command) {
         openTerminalInterface();
       }
       return true;
-    case '/shell':
+      
+    // Checkpoint Commands
+    case '/checkpoint':
+      createCheckpoint(args || null);
+      return true;
+      
+    case '/checkpoints':
+      showCheckpointHistory();
+      return true;
+      
+    case '/rollback':
       if (args) {
-        executeShellCommand(args);
+        rollbackByIndex(args);
       } else {
-        showShellHelp();
+        showCheckpointHistory();
       }
       return true;
+      
+    case '/delete-checkpoint':
+      if (args) {
+        deleteCheckpoint(args);
+      } else {
+        addSystemMessage('Usage: /delete-checkpoint <number>', 'warning');
+      }
+      return true;
+    
     default:
+      addSystemMessage(`Unknown command: ${cmd}`, 'error');
       return false;
   }
 }
@@ -2732,6 +2941,410 @@ function addTerminalToSlashCommands() {
   
   // This would need to be integrated with the existing system
   // For now, they're handled in the handleSlashCommand function
+}
+
+// Helper functions for slash commands
+function showHelpMessage() {
+  const helpText = `
+# Claude Code Commands
+
+## Core Commands
+- \`/continue\` - Continue the last response
+- \`/undo\` - Undo the last action
+- \`/redo\` - Redo the last undone action
+- \`/cancel\` - Cancel the current operation
+- \`/diff\` - Show differences between original and modified files
+- \`/help\` - Show this help message
+
+## Checkpoint Commands
+- \`/checkpoint [name]\` - Create a checkpoint of current conversation
+- \`/checkpoints\` - Show all checkpoints for this session
+- \`/rollback [number]\` - Rollback to a specific checkpoint
+- \`/delete-checkpoint [number]\` - Delete a checkpoint
+
+## Configuration
+- \`/model [name]\` - Change the AI model
+- \`/tools\` - Manage allowed/disallowed tools
+- \`/mcp\` - Manage MCP server connections
+- \`/settings\` - Open settings panel
+
+## Search & Navigation
+- \`/search [query]\` - Search through conversation history
+- \`/history\` - Show session history
+
+## Shell Commands
+- \`/shell [command]\` - Execute a shell command
+- \`/terminal\` - Open terminal interface
+- \`/cd [path]\` - Change directory
+- \`/ls [path]\` - List directory contents
+- \`/pwd\` - Show current directory
+
+## Memory Commands
+- \`/remember [content]\` - Create a memory
+- \`/recall [query]\` - Search memories
+- \`/forget [id]\` - Delete a memory
+
+## Session Management
+- \`/new\` - Start a new session
+- \`/resume [id]\` - Resume a previous session
+- \`/save\` - Save current session
+- \`/export\` - Export conversation
+
+## View Commands
+- \`/clear\` - Clear the chat
+- \`/focus [context]\` - Focus on specific context
+- \`/expand\` - Expand all code blocks
+- \`/collapse\` - Collapse all code blocks
+
+## Keyboard Shortcuts
+- \`Ctrl+Enter\` - Send message
+- \`Shift+Enter\` - New line
+- \`Ctrl+L\` - Clear screen
+- \`Ctrl+C\` - Cancel operation
+- \`Arrow Up/Down\` - Navigate command history
+`;
+  
+  addAssistantMessage(helpText);
+}
+
+function showModelSelection() {
+  const models = [
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022',
+    'claude-3-opus-20240229',
+    'claude-3-sonnet-20240229',
+    'claude-3-haiku-20240307'
+  ];
+  
+  const modelList = models.map(m => `• ${m}`).join('\n');
+  addSystemMessage(`Available models:\n${modelList}\n\nUse: /model <model-name>`, 'info');
+}
+
+function showToolsConfiguration() {
+  vscode.postMessage({ command: 'getToolsConfig' });
+  addSystemMessage('Loading tools configuration...', 'info');
+}
+
+function showMcpConfiguration() {
+  vscode.postMessage({ command: 'getMcpConfig' });
+  addSystemMessage('Loading MCP configuration...', 'info');
+}
+
+function searchConversationHistory(query) {
+  const messages = chatContainer.querySelectorAll('.message');
+  let found = 0;
+  
+  messages.forEach(msg => {
+    const content = msg.textContent.toLowerCase();
+    if (content.includes(query.toLowerCase())) {
+      msg.classList.add('search-highlight');
+      found++;
+    } else {
+      msg.classList.remove('search-highlight');
+    }
+  });
+  
+  addSystemMessage(`Found ${found} messages containing "${query}"`, 'info');
+}
+
+function showSearchInterface() {
+  const searchDiv = document.createElement('div');
+  searchDiv.className = 'search-interface';
+  searchDiv.innerHTML = `
+    <input type="text" placeholder="Search conversation..." class="search-input">
+    <button class="search-button">Search</button>
+  `;
+  
+  chatContainer.appendChild(searchDiv);
+  
+  const searchInput = searchDiv.querySelector('.search-input');
+  const searchButton = searchDiv.querySelector('.search-button');
+  
+  searchButton.addEventListener('click', () => {
+    const query = searchInput.value.trim();
+    if (query) {
+      searchConversationHistory(query);
+      searchDiv.remove();
+    }
+  });
+  
+  searchInput.focus();
+}
+
+function showMemoryCreationInterface() {
+  const memoryDiv = document.createElement('div');
+  memoryDiv.className = 'memory-interface';
+  memoryDiv.innerHTML = `
+    <h3>Create Memory</h3>
+    <textarea placeholder="Enter memory content..." class="memory-input"></textarea>
+    <button class="memory-save">Save Memory</button>
+    <button class="memory-cancel">Cancel</button>
+  `;
+  
+  chatContainer.appendChild(memoryDiv);
+  
+  const memoryInput = memoryDiv.querySelector('.memory-input');
+  const saveButton = memoryDiv.querySelector('.memory-save');
+  const cancelButton = memoryDiv.querySelector('.memory-cancel');
+  
+  saveButton.addEventListener('click', () => {
+    const content = memoryInput.value.trim();
+    if (content) {
+      vscode.postMessage({ command: 'createMemory', content });
+      memoryDiv.remove();
+    }
+  });
+  
+  cancelButton.addEventListener('click', () => {
+    memoryDiv.remove();
+  });
+}
+
+function showMemoryDeletionInterface() {
+  vscode.postMessage({ command: 'listMemories' });
+  addSystemMessage('Loading memories for deletion...', 'info');
+}
+
+function showFocusInterface() {
+  const focusOptions = [
+    'Current file',
+    'Open files',
+    'Workspace',
+    'Git changes',
+    'Specific directory'
+  ];
+  
+  const optionsList = focusOptions.map(o => `• ${o}`).join('\n');
+  addSystemMessage(`Focus options:\n${optionsList}\n\nUse: /focus <option>`, 'info');
+}
+
+function exportConversation() {
+  const messages = [];
+  const messageElements = chatContainer.querySelectorAll('.message');
+  
+  messageElements.forEach(msg => {
+    const role = msg.classList.contains('user') ? 'user' : 
+                 msg.classList.contains('assistant') ? 'assistant' : 'system';
+    const content = msg.querySelector('.message-content')?.textContent || msg.textContent;
+    messages.push({ role, content });
+  });
+  
+  vscode.postMessage({ 
+    command: 'exportConversation', 
+    messages,
+    sessionId: currentSessionId 
+  });
+  
+  addSystemMessage('Exporting conversation...', 'info');
+}
+
+function expandAllCodeBlocks() {
+  const codeBlocks = chatContainer.querySelectorAll('.code-block');
+  codeBlocks.forEach(block => {
+    block.classList.add('expanded');
+  });
+  addSystemMessage('All code blocks expanded', 'info');
+}
+
+function collapseAllCodeBlocks() {
+  const codeBlocks = chatContainer.querySelectorAll('.code-block');
+  codeBlocks.forEach(block => {
+    block.classList.remove('expanded');
+  });
+  addSystemMessage('All code blocks collapsed', 'info');
+}
+
+// Checkpoint Management Functions
+function createCheckpoint(name = null) {
+  if (!currentSessionId) {
+    addSystemMessage('No active session to checkpoint', 'warning');
+    return;
+  }
+  
+  const checkpoint = {
+    id: `checkpoint-${Date.now()}`,
+    sessionId: currentSessionId,
+    name: name || `Checkpoint ${new Date().toLocaleTimeString()}`,
+    timestamp: new Date().toISOString(),
+    messages: Array.from(chatContainer.children).map(el => ({
+      html: el.outerHTML,
+      className: el.className
+    })),
+    stats: {
+      duration: durationElement.textContent,
+      cost: costElement.textContent,
+      turns: turnsElement.textContent
+    }
+  };
+  
+  // Initialize checkpoint array if needed
+  if (!conversationCheckpoints.has(currentSessionId)) {
+    conversationCheckpoints.set(currentSessionId, []);
+  }
+  
+  const checkpoints = conversationCheckpoints.get(currentSessionId);
+  checkpoints.push(checkpoint);
+  
+  // Update current index
+  currentCheckpointIndex.set(currentSessionId, checkpoints.length - 1);
+  
+  // Save to localStorage
+  saveCheckpointsToStorage();
+  
+  addSystemMessage(`✅ Checkpoint created: ${checkpoint.name}`, 'success');
+  updateCheckpointIndicator();
+}
+
+function rollbackToCheckpoint(checkpointId) {
+  if (!currentSessionId) return;
+  
+  const checkpoints = conversationCheckpoints.get(currentSessionId) || [];
+  const checkpointIndex = checkpoints.findIndex(cp => cp.id === checkpointId);
+  
+  if (checkpointIndex === -1) {
+    addSystemMessage('Checkpoint not found', 'error');
+    return;
+  }
+  
+  const checkpoint = checkpoints[checkpointIndex];
+  
+  // Restore conversation state
+  chatContainer.innerHTML = '';
+  checkpoint.messages.forEach(msg => {
+    chatContainer.innerHTML += msg.html;
+  });
+  
+  // Restore stats
+  durationElement.textContent = checkpoint.stats.duration;
+  costElement.textContent = checkpoint.stats.cost;
+  turnsElement.textContent = checkpoint.stats.turns;
+  
+  // Update current index
+  currentCheckpointIndex.set(currentSessionId, checkpointIndex);
+  
+  // Scroll to bottom
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+  
+  addSystemMessage(`↩️ Rolled back to: ${checkpoint.name}`, 'info');
+  updateCheckpointIndicator();
+}
+
+function showCheckpointHistory() {
+  if (!currentSessionId) {
+    addSystemMessage('No active session', 'warning');
+    return;
+  }
+  
+  const checkpoints = conversationCheckpoints.get(currentSessionId) || [];
+  
+  if (checkpoints.length === 0) {
+    addSystemMessage('No checkpoints for this session', 'info');
+    return;
+  }
+  
+  const currentIndex = currentCheckpointIndex.get(currentSessionId) || checkpoints.length - 1;
+  
+  const checkpointList = checkpoints.map((cp, index) => {
+    const isCurrent = index === currentIndex;
+    return `${isCurrent ? '→ ' : '  '}${index + 1}. ${cp.name} (${formatDate(cp.timestamp)})`;
+  }).join('\n');
+  
+  addSystemMessage(`📍 Checkpoints:\n${checkpointList}\n\nUse /rollback <number> to restore`, 'info');
+}
+
+function rollbackByIndex(index) {
+  if (!currentSessionId) return;
+  
+  const checkpoints = conversationCheckpoints.get(currentSessionId) || [];
+  const targetIndex = parseInt(index) - 1; // Convert to 0-based
+  
+  if (targetIndex < 0 || targetIndex >= checkpoints.length) {
+    addSystemMessage(`Invalid checkpoint number. Use 1-${checkpoints.length}`, 'error');
+    return;
+  }
+  
+  rollbackToCheckpoint(checkpoints[targetIndex].id);
+}
+
+function deleteCheckpoint(index) {
+  if (!currentSessionId) return;
+  
+  const checkpoints = conversationCheckpoints.get(currentSessionId) || [];
+  const targetIndex = parseInt(index) - 1;
+  
+  if (targetIndex < 0 || targetIndex >= checkpoints.length) {
+    addSystemMessage(`Invalid checkpoint number`, 'error');
+    return;
+  }
+  
+  const checkpoint = checkpoints[targetIndex];
+  checkpoints.splice(targetIndex, 1);
+  
+  // Update current index if needed
+  const currentIndex = currentCheckpointIndex.get(currentSessionId) || 0;
+  if (currentIndex >= targetIndex) {
+    currentCheckpointIndex.set(currentSessionId, Math.max(0, currentIndex - 1));
+  }
+  
+  saveCheckpointsToStorage();
+  addSystemMessage(`🗑️ Deleted checkpoint: ${checkpoint.name}`, 'info');
+}
+
+function saveCheckpointsToStorage() {
+  const checkpointData = {};
+  conversationCheckpoints.forEach((checkpoints, sessionId) => {
+    checkpointData[sessionId] = checkpoints;
+  });
+  
+  localStorage.setItem('claudeCodeCheckpoints', JSON.stringify(checkpointData));
+}
+
+function loadCheckpointsFromStorage() {
+  try {
+    const stored = localStorage.getItem('claudeCodeCheckpoints');
+    if (stored) {
+      const checkpointData = JSON.parse(stored);
+      Object.entries(checkpointData).forEach(([sessionId, checkpoints]) => {
+        conversationCheckpoints.set(sessionId, checkpoints);
+      });
+    }
+  } catch (error) {
+    console.error('Failed to load checkpoints:', error);
+  }
+}
+
+function updateCheckpointIndicator() {
+  // Add visual indicator for checkpoint status
+  let indicator = document.getElementById('checkpoint-indicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.id = 'checkpoint-indicator';
+    indicator.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--vscode-notifications-background);
+      color: var(--vscode-notifications-foreground);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 100;
+      cursor: pointer;
+    `;
+    document.body.appendChild(indicator);
+    
+    indicator.addEventListener('click', showCheckpointHistory);
+  }
+  
+  if (currentSessionId) {
+    const checkpoints = conversationCheckpoints.get(currentSessionId) || [];
+    const currentIndex = currentCheckpointIndex.get(currentSessionId) || checkpoints.length - 1;
+    indicator.textContent = `📍 Checkpoint ${currentIndex + 1}/${checkpoints.length}`;
+    indicator.style.display = checkpoints.length > 0 ? 'block' : 'none';
+  } else {
+    indicator.style.display = 'none';
+  }
 }
 
 // Initialize when page loads
