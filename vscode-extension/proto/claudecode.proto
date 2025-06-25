@@ -1,0 +1,18 @@
+syntax = "proto3";
+package claudecode;
+
+service ClaudeCode {
+  rpc Query (QueryRequest) returns (stream QueryResponse);
+}
+
+message QueryRequest {
+  string prompt = 1;
+  map<string, string> options = 2;
+}
+
+message QueryResponse {
+  string type = 1;
+  string content = 2;
+  bool is_error = 3;
+  string session_id = 4;
+}

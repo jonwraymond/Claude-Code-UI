@@ -98,6 +98,20 @@ Type `/` to see all available commands:
 - **Export conversations** with `/export` command
 - **Resume sessions** from history panel
 
+## 🔌 Standalone gRPC Service
+
+Run the extension logic outside of VS Code by starting a small gRPC server. This
+mirrors the approach used in the Cline project and allows CLI tools to talk to
+Claude Code through the same API.
+
+```bash
+# Start the service on localhost:50052
+npm run start:standalone
+```
+
+The service exposes a single `Query` RPC defined in
+`proto/claudecode.proto` and streams back responses from the Claude Code SDK.
+
 ## 🔒 Security
 
 - API keys are stored securely in VS Code's secret storage

@@ -153,7 +153,8 @@
     "test": "node ./out/test/runTest.js",
     "test:unit": "npm run pretest && npm run test",
     "test:coverage": "nyc npm run test",
-    "coverage:report": "nyc report --reporter=html"
+    "coverage:report": "nyc report --reporter=html",
+    "start:standalone": "npm run compile && node ./out/standalone/server.js"
   },
   "devDependencies": {
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
@@ -175,6 +176,8 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.33",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "@grpc/grpc-js": "^1.9.15",
+    "@grpc/proto-loader": "^0.7.7"
   }
 }
