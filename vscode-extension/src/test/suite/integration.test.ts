@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';

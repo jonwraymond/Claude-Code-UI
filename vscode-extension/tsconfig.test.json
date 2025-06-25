@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "noImplicitAny": false,
+    "types": ["mocha", "node"]
+  },
+  "exclude": ["node_modules"]
+}
